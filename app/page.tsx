@@ -4,25 +4,28 @@ import { useEffect, useState } from "react";
 
 const products = [
   {
-    type: "Material de estudo",
-    title: "Caderno de práticas inclusivas",
-    desc: "Conteúdos aplicáveis para transformar a rotina pedagógica.",
-    price: "Em breve",
+    type: "Curso completo",
+    title: "Preparatório Extensivo para Concursos",
+    desc: "Videoaulas de todos os temas da educação, resumos estratégicos, mapas mentais e questões comentadas em vídeo e PDF.",
+    price: "Acesso imediato",
     accent: "blue",
+    cta: "Quero ser aprovado",
   },
   {
-    type: "Formação",
-    title: "Aprender com propósito",
-    desc: "Uma trilha para educadores que desejam ir além do conteúdo.",
-    price: "Em breve",
+    type: "Foco em bancas de SC",
+    title: "Curso de Questões e Processos Seletivos",
+    desc: "Videoaulas com correção comentada de questões das principais bancas de Santa Catarina + PDFs dos conteúdos cobrados.",
+    price: "Editais & ACTs",
     accent: "gold",
+    cta: "Quero praticar",
   },
   {
-    type: "Material de estudo",
-    title: "Kit Teorema da Educação",
-    desc: "Materiais selecionados para estudar, refletir e praticar.",
-    price: "Em breve",
+    type: "Materiais em PDF",
+    title: "Kit Estratégico em PDF",
+    desc: "Resumos objetivos, mapas mentais visuais e cadernos de questões gabaritadas e comentadas para estudo dinâmico.",
+    price: "Download imediato",
     accent: "light",
+    cta: "Garantir kit",
   },
 ];
 
@@ -32,20 +35,22 @@ const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(w
 
 const trajectories = {
   anderson: {
-    name: "Anderson",
+    name: "Anderson Hirsch",
     role: "Professor & idealizador",
     photo: "/assets/anderson-photo.jpg",
-    alt: "Anderson, professor e idealizador do Teorema da Educação",
-    intro: "Educação, prática e propósito em cada conversa.",
-    text: "Anderson acredita que a educação ganha força quando o conhecimento encontra a vida real. Sua atuação combina escuta, experiência e uma busca constante por caminhos mais acessíveis, claros e humanos para aprender.",
+    alt: "Anderson Hirsch, professor e idealizador do Teorema da Educação",
+    intro: "Anderson Henrique Hirsch é o idealizador do Teorema da Educação.",
+    text: "Licenciado em Matemática pela UNINTER e em Educação Física pela Anhanguera. Atualmente é mestrando em Matemática pela Universidade Federal de Santa Catarina (UFSC) e possui pós-graduações em Educação Tecnológica (UNIFAVENI), Educação Ambiental pelo IFSC e Gestão Escolar pela FaSouza. No Teorema da Educação, atua como o professor à frente das aulas em vídeo do projeto, e lado a lado com a profª. Mariana no planejamento, criação de aulas e elaboração dos materiais de estudo, promovendo conteúdos estruturados e de alta qualidade pedagógica.",
+    lattes: "",
   },
   mariana: {
-    name: "Mariana",
+    name: "Mariana Tiepo",
     role: "Educadora & idealizadora",
     photo: "/assets/mariana-photo.jpeg",
-    alt: "Mariana, educadora e idealizadora do Teorema da Educação",
-    intro: "Olhar sensível para criar novas possibilidades.",
-    text: "Mariana entende a educação como um espaço de encontro, cuidado e transformação. Seu olhar sensível ajuda a construir experiências que respeitam diferentes histórias, ritmos e formas de descobrir novas possibilidades.",
+    alt: "Mariana Tiepo, educadora e idealizadora do Teorema da Educação",
+    intro: "Mariana Zaninelli Cordeiro Tiepo é professora efetiva de Educação Especial no município de Palhoça/SC.",
+    text: "Graduada em Pedagogia Bilíngue (Libras/Português) pelo IFSC, possui especialização em Educação Especial e Inclusiva (Faculdade Dom Alberto) e é especialista em Educação de Surdos pelo IFSC. Participou do grupo de estudos LEdi/UDESC, dedica sua trajetória às pesquisas sobre inclusão e Justiça da Deficiência. No Teorema da Educação, atua lado a lado com o prof. Anderson na elaboração e construção das aulas e materiais de estudo, contribuindo para a formação e o fortalecimento de práticas pedagógicas verdadeiramente inclusivas.",
+    lattes: "http://lattes.cnpq.br/0939120114756570",
   },
 };
 
@@ -108,18 +113,18 @@ export default function Home() {
       <section className="hero" id="inicio">
         <div className="hero-grid" />
         <div className="hero-copy">
-          <p className="eyebrow">Educação que faz sentido</p>
+          <p className="eyebrow">Preparatório para concursos e processos seletivos</p>
           <h1>
-            Conhecimento
+            Sua aprovação na Educação
             <br />
-            <em>que transforma.</em>
+            <em>começa aqui.</em>
           </h1>
           <p className="hero-text">
-            Um espaço para quem acredita que educar é abrir caminhos, criar
-            possibilidades e transformar realidades.
+            Videoaulas completas, resumos estratégicos em PDF, mapas mentais e
+            questões comentadas das principais bancas de Santa Catarina.
           </p>
           <a className="button button-light" href="#projeto">
-            Conheça o projeto <span>↓</span>
+            Conheça nossos cursos <span>↓</span>
           </a>
         </div>
         <div className="hero-art">
@@ -142,26 +147,27 @@ export default function Home() {
         <div className="section-label">01 / O projeto</div>
         <div className="intro-content">
           <div>
-            <p className="eyebrow blue-text">Mais do que ensinar</p>
+            <p className="eyebrow blue-text">Metodologia focada em resultados</p>
             <h2>
-              Uma educação
+              Estude com clareza, objetividade
               <br />
-              <em>com intenção.</em>
+              <em>e foco.</em>
             </h2>
           </div>
           <div className="intro-body">
             <p>
-              O Teorema da Educação nasce do encontro entre experiência,
-              pesquisa e o desejo de tornar o conhecimento mais acessível,
-              humano e aplicável.
+              No Teorema da Educação, transformamos edital em planejamento
+              eficiente. Unimos professores especialistas a materiais visuais
+              como mapas mentais e resumos estratégicos para acelerar seu
+              aprendizado.
             </p>
             <p>
-              Criamos conteúdos e materiais para apoiar educadores, estudantes e
-              todos que entendem a educação como uma ferramenta de
-              transformação.
+              Seja para concursos públicos ou processos seletivos (ACT),
+              entregamos o direcionamento exato que você precisa para dominar a
+              legislação pedagógica e garantir sua vaga.
             </p>
             <a className="text-link" href="#docentes">
-              Conheça quem está por trás <span>↗</span>
+              Conheça nossa metodologia <span>↗</span>
             </a>
           </div>
         </div>
@@ -169,12 +175,12 @@ export default function Home() {
 
       <section className="manifesto">
         <div className="manifesto-inner">
-          <div className="section-label light-label">Nossa visão</div>
+          <div className="section-label light-label">Nosso compromisso</div>
           <p>
-            “Todo aprendizado
-            <br />é uma <em>possibilidade</em>
+            "Preparação de excelência para você dominar a banca
+            <br />e alcançar a sua tão sonhada
             <br />
-            em movimento.”
+            <em>nomeação.</em>"
           </p>
           <div className="manifesto-line" />
         </div>
@@ -186,14 +192,16 @@ export default function Home() {
           <div>
             <p className="eyebrow blue-text">Quem faz acontecer</p>
             <h2>
-              Experiência que
+              Servidores efetivos em SC que
               <br />
-              <em>ensina pelo exemplo.</em>
+              <em>conhecem o caminho da aprovação.</em>
             </h2>
           </div>
           <p>
-            Conheça os idealizadores do Teorema da Educação e a visão que guia
-            cada conteúdo, cada encontro e cada material.
+            Conheça os idealizadores do Teorema da Educação: professores
+            concursados, pesquisadores e especialistas comprometidos em
+            transformar a preparação para concursos públicos e processos
+            seletivos em Santa Catarina.
           </p>
         </div>
         <div className="people-grid">
@@ -203,8 +211,8 @@ export default function Home() {
             </div>
             <div className="person-info">
               <p className="eyebrow">Professor & idealizador</p>
-              <h3>Anderson</h3>
-              <p>Educação, prática e propósito em cada conversa.</p>
+              <h3>Anderson Hirsch</h3>
+              <p>Servidor efetivo no município de Palhoça/SC. Licenciado em Matemática e Ed. Física, Mestrando na UFSC e especialista em Educação Tecnológica e Gestão Escolar.</p>
               <a className="text-link" href="#trajetoria-anderson" onClick={(event) => { event.preventDefault(); setActivePerson("anderson"); }}>
                 Conhecer trajetória <span>↗</span>
               </a>
@@ -216,8 +224,8 @@ export default function Home() {
             </div>
             <div className="person-info">
               <p className="eyebrow">Educadora & idealizadora</p>
-              <h3>Mariana</h3>
-              <p>Olhar sensível para criar novas possibilidades.</p>
+              <h3>Mariana Tiepo</h3>
+              <p>Professora efetiva de Educação Especial em Palhoça/SC. Graduada em Pedagogia Bilíngue pelo IFSC e especialista em Educação Inclusiva e Educação de Surdos.</p>
               <a className="text-link" href="#trajetoria-mariana" onClick={(event) => { event.preventDefault(); setActivePerson("mariana"); }}>
                 Conhecer trajetória <span>↗</span>
               </a>
@@ -230,17 +238,17 @@ export default function Home() {
         <div className="section-label">03 / Materiais</div>
         <div className="materials-heading">
           <div>
-            <p className="eyebrow blue-text">Estude no seu ritmo</p>
+            <p className="eyebrow blue-text">Seu plano de estudos</p>
             <h2>
-              Conteúdo para
+              A preparação ideal
               <br />
-              <em>levar com você.</em>
+              <em>para o seu ritmo.</em>
             </h2>
           </div>
           <p>
-            Materiais pensados para sair da tela e fazer parte da sua prática.
-            Cadastre-se para receber novidades e ser avisado dos próximos
-            lançamentos.
+            Escolha o formato de estudo que melhor se adapta à sua rotina. Do
+            conteúdo teórico completo à prática intensa de questões das bancas
+            de Santa Catarina.
           </p>
         </div>
         <div className="product-grid">
@@ -258,7 +266,7 @@ export default function Home() {
               <p>{product.desc}</p>
               <div className="product-bottom">
                 <strong>{product.price}</strong>
-                <a href="#cadastro">Quero saber mais</a>
+                <a href="#cadastro">{product.cta}</a>
               </div>
             </article>
           ))}
@@ -268,21 +276,22 @@ export default function Home() {
       <section className="signup" id="cadastro">
         <div className="signup-decoration">TE</div>
         <div className="signup-content">
-          <p className="eyebrow">Fique por dentro</p>
+          <p className="eyebrow">Tire suas dúvidas</p>
           <h2>
-            Envie-nos uma mensagem
+            Fale conosco e escolha o
             <br />
-            <em>e descubra seu próximo passo.</em>
+            <em>plano ideal para sua aprovação.</em>
           </h2>
           <p>
-            Fale diretamente com o Teorema da Educação e descubra qual material,
-            formação ou caminho faz mais sentido para você.
+            Fale diretamente com nossa equipe pelo WhatsApp para descobrir qual
+            curso ou combo de materiais em PDF se encaixa perfeitamente no seu
+            momento de estudos.
           </p>
           <a className="whatsapp-cta" href={whatsappUrl} target="_blank" rel="noreferrer">
-            Envie-nos uma mensagem <span>↗</span>
+            Fale conosco no WhatsApp <span>↗</span>
           </a>
           <small>
-            Atendimento direto pelo WhatsApp oficial do Teorema da Educação.
+            Atendimento rápido e direto pelo WhatsApp oficial do Teorema da Educação.
           </small>
         </div>
       </section>
@@ -293,8 +302,8 @@ export default function Home() {
             <img className="footer-logo" src="/assets/te-prof-anderson.png" alt="TE com Prof. Anderson" />
           </a>
           <p>
-            Educação que abre caminhos
-            <br />e transforma realidades.
+            Preparando professores para a aprovação
+            <br />nos concursos de Santa Catarina.
           </p>
           <div className="socials">
             <a href="https://www.instagram.com/teoremaeducacao?igsi=MTNzeGQxMXhna2Z0dQ==" target="_blank" rel="noreferrer">
@@ -321,12 +330,16 @@ export default function Home() {
             <button className="trajectory-close" type="button" onClick={() => setActivePerson(null)} aria-label="Fechar trajetória">×</button>
             <div className="trajectory-image"><img src={trajectories[activePerson].photo} alt={trajectories[activePerson].alt} /></div>
             <div className="trajectory-copy">
-              <p className="eyebrow">Trajetória em construção</p>
+              <p className="eyebrow">Trajetória</p>
               <h2 id="trajectory-title">{trajectories[activePerson].name}</h2>
               <p className="trajectory-role">{trajectories[activePerson].role}</p>
               <p className="trajectory-intro">{trajectories[activePerson].intro}</p>
               <p>{trajectories[activePerson].text}</p>
-              <small>Texto provisório. Esta apresentação será atualizada com a trajetória oficial em breve.</small>
+              {trajectories[activePerson].lattes && (
+                <a className="text-link" href={trajectories[activePerson].lattes} target="_blank" rel="noreferrer">
+                  Currículo Lattes <span>↗</span>
+                </a>
+              )}
             </div>
           </article>
         </div>
