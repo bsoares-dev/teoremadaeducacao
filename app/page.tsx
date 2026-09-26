@@ -32,6 +32,8 @@ const products = [
 const whatsappNumber = "5548935011911";
 const whatsappMessage = "Olá! Vim pelo site do Teorema da Educação e gostaria de descobrir meu próximo passo.";
 const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+const formatCpf = (value: string) => value.replace(/\D/g, "").slice(0, 11).replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+const formatPhone = (value: string) => value.replace(/\D/g, "").slice(0, 11).replace(/^(\d{2})(\d)/, "($1) $2").replace(/(\d{5})(\d{4})$/, "$1-$2");
 
 const trajectories = {
   anderson: {
@@ -57,6 +59,10 @@ const trajectories = {
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activePerson, setActivePerson] = useState<keyof typeof trajectories | null>(null);
+  const [registration, setRegistration] = useState({ name: "", email: "", phone: "", cpf: "" });
+  const [registrationFeedback, setRegistrationFeedback] = useState("");
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [registrationLoading, setRegistrationLoading] = useState(false);
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -69,6 +75,25 @@ export default function Home() {
       document.body.style.overflow = "";
     };
   }, [activePerson]);
+
+  async function handleRegistration(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setRegistrationLoading(true);
+    setRegistrationFeedback("");
+    setRegistrationSuccess(false);
+    try {
+      const response = await fetch("/api/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(registration) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Não foi possível concluir o cadastro.");
+      setRegistration({ name: "", email: "", phone: "", cpf: "" });
+      setRegistrationSuccess(true);
+      setRegistrationFeedback("Cadastro recebido. Em breve, entraremos em contato.");
+    } catch (error) {
+      setRegistrationFeedback(error instanceof Error ? error.message : "Não foi possível concluir o cadastro agora.");
+    } finally {
+      setRegistrationLoading(false);
+    }
+  }
   return (
     <main>
       <header className="header">
@@ -276,23 +301,25 @@ export default function Home() {
       <section className="signup" id="cadastro">
         <div className="signup-decoration">TE</div>
         <div className="signup-content">
-          <p className="eyebrow">Tire suas dúvidas</p>
+          <p className="eyebrow">Cadastre-se</p>
           <h2>
-            Fale conosco e escolha o
+            Faça parte do
             <br />
-            <em>plano ideal para sua aprovação.</em>
+            <em>Teorema da Educação.</em>
           </h2>
           <p>
-            Fale diretamente com nossa equipe pelo WhatsApp para descobrir qual
-            curso ou combo de materiais em PDF se encaixa perfeitamente no seu
-            momento de estudos.
+            Deixe seus dados para acompanhar novidades, materiais e oportunidades
+            de formação do Teorema da Educação.
           </p>
-          <a className="whatsapp-cta" href={whatsappUrl} target="_blank" rel="noreferrer">
-            Fale conosco no WhatsApp <span>↗</span>
-          </a>
-          <small>
-            Atendimento rápido e direto pelo WhatsApp oficial do Teorema da Educação.
-          </small>
+          <form className="registration-form" onSubmit={handleRegistration}>
+            <div className="registration-field registration-field-wide"><label htmlFor="registration-name">Nome e sobrenome</label><input id="registration-name" name="name" value={registration.name} onChange={(event) => setRegistration({ ...registration, name: event.target.value })} autoComplete="name" required /></div>
+            <div className="registration-field"><label htmlFor="registration-email">E-mail</label><input id="registration-email" name="email" type="email" value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} autoComplete="email" required /></div>
+            <div className="registration-field"><label htmlFor="registration-phone">Número de telefone</label><input id="registration-phone" name="phone" inputMode="tel" value={registration.phone} onChange={(event) => setRegistration({ ...registration, phone: formatPhone(event.target.value) })} autoComplete="tel" required /></div>
+            <div className="registration-field"><label htmlFor="registration-cpf">CPF</label><input id="registration-cpf" name="cpf" inputMode="numeric" value={registration.cpf} onChange={(event) => setRegistration({ ...registration, cpf: formatCpf(event.target.value) })} autoComplete="off" required /></div>
+            <button className="registration-submit" type="submit" disabled={registrationLoading}>{registrationLoading ? "Enviando..." : "Quero me cadastrar"}<span>↗</span></button>
+          </form>
+          {registrationFeedback && <p className={registrationSuccess ? "registration-feedback success" : "registration-feedback"} role="status">{registrationFeedback}</p>}
+          <small>Seus dados serão protegidos e usados apenas para comunicações do Teorema da Educação.</small>
         </div>
       </section>
 
