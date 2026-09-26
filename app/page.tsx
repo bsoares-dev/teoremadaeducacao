@@ -127,7 +127,9 @@ export default function Home() {
           </a>
           <a
             className="nav-cta"
-            href="#cadastro"
+            href="/login"
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={() => setMenuOpen(false)}
           >
             Cadastre-se <span>↗</span>
@@ -291,7 +293,7 @@ export default function Home() {
               <p>{product.desc}</p>
               <div className="product-bottom">
                 <strong>{product.price}</strong>
-                <a href="#cadastro">{product.cta}</a>
+                <a href="/materiais">{product.cta}</a>
               </div>
             </article>
           ))}
