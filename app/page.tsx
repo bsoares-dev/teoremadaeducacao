@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { LogOut } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import type { User } from "@supabase/supabase-js";
 
 const products = [
   {
@@ -59,10 +63,44 @@ const trajectories = {
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activePerson, setActivePerson] = useState<keyof typeof trajectories | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [registration, setRegistration] = useState({ name: "", email: "", phone: "", cpf: "" });
   const [registrationFeedback, setRegistrationFeedback] = useState("");
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [registrationLoading, setRegistrationLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (isMounted) {
+        setUser(session?.user ?? null);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isMounted) {
+        setUser(session?.user ?? null);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function handleSignOut() {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setMenuOpen(false);
+    } finally {
+      window.location.reload();
+    }
+  }
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -125,15 +163,35 @@ export default function Home() {
           <a href="#contato" onClick={() => setMenuOpen(false)}>
             Contato
           </a>
-          <a
-            className="nav-cta"
-            href="/login"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setMenuOpen(false)}
-          >
-            Cadastre-se <span>↗</span>
-          </a>
+          {user ? (
+            <div className="nav-auth-group">
+              <Link
+                className="nav-cta"
+                href="/perfil"
+                onClick={() => setMenuOpen(false)}
+              >
+                Meu Perfil <span>↗</span>
+              </Link>
+              <button
+                type="button"
+                className="nav-logout"
+                onClick={handleSignOut}
+                aria-label="Sair da conta"
+                title="Sair da conta"
+              >
+                <LogOut size={15} aria-hidden="true" />
+                <span>Sair</span>
+              </button>
+            </div>
+          ) : (
+            <Link
+              className="nav-cta"
+              href="/cadastro"
+              onClick={() => setMenuOpen(false)}
+            >
+              Cadastre-se <span>↗</span>
+            </Link>
+          )}
         </nav>
       </header>
 
