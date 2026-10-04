@@ -1,7 +1,5 @@
-import { NextResponse } from "next/server";
+import { privateJson } from "@/lib/http";
 
 export async function POST() {
-  const response = NextResponse.json({ ok: true });
-  response.cookies.set("teorema_admin_session", "", { httpOnly: true, expires: new Date(0), path: "/" });
-  return response;
+  return privateJson({ error: "Este acesso antigo foi desativado. Utilize /login com sua conta." }, 410);
 }

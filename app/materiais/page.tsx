@@ -1,37 +1,23 @@
 import Link from "next/link";
+import { createClient } from "@/utils/supabase/server";
+import { pagination } from "@/lib/schemas";
 
 const whatsappNumber = "5548935011911";
 
-const materials = [
-  {
-    eyebrow: "PDF estratégico",
-    title: "Kit Estratégico em PDF",
-    description:
-      "Resumos objetivos, mapas mentais visuais e cadernos de questões comentadas para organizar sua preparação.",
-    detail: "Download digital",
-  },
-  {
-    eyebrow: "Prática pedagógica",
-    title: "Caderno de práticas inclusivas",
-    description:
-      "Conteúdos aplicáveis para transformar a rotina pedagógica e ampliar as possibilidades de aprendizagem.",
-    detail: "Material em PDF",
-  },
-  {
-    eyebrow: "Formação",
-    title: "Aprender com propósito",
-    description:
-      "Uma trilha para educadores que desejam ir além do conteúdo e construir práticas com mais intenção.",
-    detail: "Em breve",
-  },
-];
 
 function getWhatsappUrl(title: string) {
   const message = `Olá! Tenho interesse no material ${title} e gostaria de saber como adquirir.`;
   return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 }
 
-export default function MaterialsPage() {
+export default async function MaterialsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const { page, from, to } = pagination((await searchParams).page || null, 12);
+  const client = await createClient();
+  const { data: materials, error, count } = await client.from("products")
+    .select("id,name,description,price,image_url", { count: "exact" })
+    .eq("is_active", true)
+    .order("created_at", { ascending: false }).order("id").range(from, to);
+
   return (
     <main className="materials-page">
       <header className="materials-header">
@@ -61,22 +47,29 @@ export default function MaterialsPage() {
           <h2 id="catalog-title">Materiais para estudar com propósito.</h2>
         </div>
 
+        {error && <p role="alert">Não foi possível carregar os materiais. <Link href="/materiais">Tentar novamente</Link></p>}
+        {!error && !materials?.length && <p>Nenhum material disponível nesta página. Fale com nossa equipe ou volte à primeira página.</p>}
         <div className="materials-grid">
-          {materials.map((material, index) => (
-            <article className={`material-sale-card material-sale-card-${index + 1}`} key={material.title}>
+          {(materials || []).map((material, index) => (
+            <article className={`material-sale-card material-sale-card-${index % 3 + 1}`} key={material.id}>
               <div className="material-card-number">0{index + 1}</div>
-              <p className="eyebrow">{material.eyebrow}</p>
-              <h3>{material.title}</h3>
+              {material.image_url?.startsWith("https://") && <img className="catalog-image" src={material.image_url} alt={material.name} loading="lazy" referrerPolicy="no-referrer" />}
+              <h3>{material.name}</h3>
               <p>{material.description}</p>
               <div className="material-card-footer">
-                <span>{material.detail}</span>
-                <a href={getWhatsappUrl(material.title)} target="_blank" rel="noreferrer">
+                <span>{Number(material.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                <a href={getWhatsappUrl(material.name)} target="_blank" rel="noreferrer">
                   Quero adquirir <span>↗</span>
                 </a>
               </div>
             </article>
           ))}
         </div>
+        {!error && <nav className="pagination" aria-label="Páginas do catálogo">
+          {page > 1 && <Link href={"/materiais?page=" + (page - 1)}>Anterior</Link>}
+          <span>Página {page}</span>
+          {page * 12 < (count || 0) && <Link href={"/materiais?page=" + (page + 1)}>Próxima</Link>}
+        </nav>}
       </section>
 
       <section className="materials-contact">

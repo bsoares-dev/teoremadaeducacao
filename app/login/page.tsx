@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { isAdmin, safeNext } from "@/lib/auth-policy";
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
@@ -12,6 +13,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("confirmation") === "invalid") {
+      setFeedback("O link de confirmação é inválido, expirou ou foi aberto em outro navegador. Se você já confirmou seu e-mail, entre com sua senha.");
+    }
+  }, []);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -19,11 +26,12 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      router.push("/carrinho");
+      router.replace(safeNext(new URLSearchParams(window.location.search).get("next"), isAdmin(data.user) ? "/admin" : "/perfil"));
+      router.refresh();
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "Não foi possível entrar agora.");
+      setFeedback(error instanceof Error && /confirm/i.test(error.message) ? "Confirme seu e-mail antes de entrar." : "Não foi possível entrar. Confira e-mail e senha ou tente novamente.");
     } finally {
       setLoading(false);
     }

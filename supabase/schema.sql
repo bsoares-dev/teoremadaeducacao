@@ -1,5 +1,6 @@
 -- Teorema da Educação
--- Execute este arquivo no Supabase SQL Editor antes de publicar o site.
+-- Schema LEGADO: mantido para recuperação de registrations.
+-- Para o fluxo atual use audit.sql e migrations/20261003_accounts_catalog.sql.
 
 create table if not exists public.registrations (
   id text primary key,
