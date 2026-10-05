@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 
-const migration = readFileSync(new URL("../supabase/migrations/20261003_accounts_catalog.sql", import.meta.url), "utf8");
-const cartsMigration = readFileSync(new URL("../supabase/migrations/20261003_carts.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../supabase/migrations/20261004005128_teorema_accounts_catalog_security.sql", import.meta.url), "utf8");
+const cartsMigration = readFileSync(new URL("../supabase/migrations/20261004005139_teorema_carts_security.sql", import.meta.url), "utf8");
 const verification = readFileSync(new URL("../supabase/verify.sql", import.meta.url), "utf8");
 const firstId = "00000000-0000-4000-8000-000000000001";
 const secondId = "00000000-0000-4000-8000-000000000002";

@@ -6,3 +6,4 @@ out
 *.tsbuildinfo
 .data
 supabase/prechange-structure.json
+supabase/.temp/

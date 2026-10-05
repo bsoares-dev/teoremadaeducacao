@@ -16,8 +16,8 @@ Consulte a [documentação oficial de SSR do Supabase](https://supabase.com/docs
 ## Aplicação da migração
 1. Obtenha backup/snapshot do banco e execute supabase/audit.sql (somente estrutura, sem dados pessoais).
 2. Confira os tipos de id (UUID), created_at (timestamp) e preço (numeric). Guarde definições de triggers/políticas.
-3. Execute supabase/migrations/20261003_accounts_catalog.sql e depois supabase/migrations/20261003_carts.sql no SQL Editor, em consultas separadas. Só prossiga se a anterior terminar com sucesso.
-4. A migração é transacional e repetível; não apaga tabelas, usuários, produtos nem registros históricos.
+3. A base remota já tem `20261004005128`, `20261004005139` e `20261004005326` aplicadas. Para reprodução em outro ambiente autorizado, use os arquivos correspondentes em `supabase/migrations/`, conferindo o histórico e a ordem. Não reaplique os scripts manuais em `supabase/legacy/` no projeto atual.
+4. As migrações-base são repetíveis para recuperação técnica e não apagam tabelas, usuários, produtos nem registros históricos. A migração nova da etapa 2 é transacional, mas não de reaplicação manual: consulte [ETAPA-2-BANCO-PDFS.md](ETAPA-2-BANCO-PDFS.md).
 5. Preserva triggers INSERT existentes que referenciem profiles. Se houver um trigger INSERT desconhecido, aborta para revisão.
 6. Confirme manualmente que o trigger preservado usa new.id, new.email, raw_user_meta_data.cpf e raw_user_meta_data.phone.
 7. Apenas perfis ausentes com metadados válidos são preenchidos. Contas sem CPF/telefone válidos continuam ativas; a interface informa perfil pendente.
@@ -40,6 +40,14 @@ Referência: [Row Level Security](https://supabase.com/docs/guides/database/post
 - Alterações feitas manualmente com SQL privilegiado ou service role fora dessas funções continuam sendo responsabilidade do operador. Essas credenciais ignoram RLS.
 - As funções não são expostas por endpoints novos nesta alteração. A tela atual continua com compra assistida por WhatsApp; conectar uma interface de carrinho a essas funções é uma etapa separada.
 - Referência: [Funções e permissões no Supabase](https://supabase.com/docs/guides/database/functions).
+
+## Pedidos e PDFs — preparação local da etapa 2
+
+A nova migração de pedidos, arquivos, acessos e auditoria está testada localmente, não aplicada no Supabase. Clientes não executam suas RPCs nem gravam decisões. O servidor precisa validar `getUser()`, origem e corpo da requisição antes de usar a chave privada; IDs de cliente/operador nunca vêm do navegador.
+
+O Supabase atual não concede leitura de `auth.users` a `service_role`. Uma única função privada `SECURITY DEFINER`, com proprietário `postgres`, `search_path` vazio, chamada restrita a service role e sem retorno de dados de Auth, verifica elegibilidade. Não expor `teorema_private` na Data API nem conceder leitura ampla de Auth para contornar erros. UUIDs administrativos são fixados na tabela privada; metadados editáveis não concedem acesso.
+
+Downloads exigirão validação de acesso ativo e geração de URLs temporárias na etapa 8. O banco prepara os controles, mas não substitui a validação de bytes do upload nem representa um fluxo de download já implementado. Homologação real e procedimento de backup estão no documento da etapa 2.
 
 ## Confirmação de e-mail
 A confirmação permanece habilitada. A interface não anuncia login antes de existir sessão.

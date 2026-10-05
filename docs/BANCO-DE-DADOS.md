@@ -2,9 +2,11 @@
 
 ## Estado da entrega
 
+Etapa 2 de venda de PDFs, em 04/10/2026: nova modelagem/migração testada localmente, ainda NÃO aplicada remotamente. Consulte [ETAPA-2-BANCO-PDFS.md](ETAPA-2-BANCO-PDFS.md). As correções abaixo descrevem a base anterior já aplicada; não confundir os dois marcos.
+
 Correções aplicadas ao projeto remoto `urgzsaftoiebsjkgyhsg` em 04/10/2026 UTC (03/10 no horário de São Paulo), após inspeção direta pelo conector Supabase.
 As 12 verificações de supabase/verify.sql retornaram zero pendências. O usuário e perfil existentes foram preservados; as demais tabelas estavam vazias.
-Histórico remoto: `20261004005128_teorema_accounts_catalog_security`, `20261004005139_teorema_carts_security` e uma migração adicional `teorema_catalog_policy_cleanup` removendo a política antiga duplicada de produtos.
+Histórico remoto: `20261004005128_teorema_accounts_catalog_security`, `20261004005139_teorema_carts_security` e `20261004005326_teorema_catalog_policy_cleanup` removendo a política antiga duplicada de produtos. Os arquivos locais foram alinhados com essas versões na etapa 2; scripts manuais anteriores foram preservados em `supabase/legacy/`.
 A limpeza adicional aplicada e registrada no histórico remoto foi:
 
 ```sql
@@ -25,11 +27,11 @@ Não exclua tabelas, usuários ou dados para instalar estas migrações.
 Não é necessário executar novamente no projeto atual. As instruções abaixo ficam para recuperação/reprodução.
 
 1. Faça um backup/exportação privada do banco e guarde as definições de políticas/triggers de supabase/audit.sql. Não publique arquivos com dados pessoais.
-2. Em SQL Editor → New query, cole o conteúdo COMPLETO de supabase/migrations/20261003_accounts_catalog.sql e clique Run.
-3. Se terminar com sucesso, abra outra New query e execute o conteúdo COMPLETO de supabase/migrations/20261003_carts.sql.
-4. Execute supabase/verify.sql em uma terceira consulta e envie os resultados agregados para validação.
+2. Em outro ambiente autorizado, revise/aplique a migração-base `supabase/migrations/20261004005128_teorema_accounts_catalog_security.sql` completa, com controle de histórico.
+3. Se terminar com sucesso, aplique `20261004005139_teorema_carts_security.sql` e depois `20261004005326_teorema_catalog_policy_cleanup.sql` completas. Não reutilize os scripts em `supabase/legacy/`.
+4. Execute supabase/verify.sql e envie somente os resultados agregados para validação.
 
-Cada arquivo de migração tem sua própria transação e pode ser reaplicado. Se o segundo falhar, o primeiro permanece aplicado; não desfaça a proteção do primeiro. Uma falha aborta as alterações daquele arquivo. Se a sessão indicar transação abortada, execute ROLLBACK antes de tentar novamente.
+As migrações-base são repetíveis para recuperação técnica, mas não devem ser reenviadas ao histórico já aplicado. As duas primeiras têm transação própria. Se a segunda falhar, a primeira permanece aplicada; não desfaça sua proteção. Uma falha aborta as alterações daquele arquivo. Se a sessão indicar transação abortada, execute ROLLBACK antes de tentar novamente. A migração nova da etapa 2 cria relações inéditas e NÃO é de reaplicação manual; siga seu documento próprio.
 Se ocorrer timeout de trava, aguarde um período de menor atividade e tente o arquivo completo novamente. Não remova verificações para contornar erros de estrutura ou duplicidade.
 Se o painel advertir sobre operações destrutivas, revise: há revogações de permissões e substituições de políticas/triggers, mas não há DROP TABLE, TRUNCATE ou DELETE de registros na aplicação da migração. O DELETE dentro da função de carrinho só roda quando o backend solicita remover um item.
 
@@ -57,7 +59,7 @@ Após autenticar com getUser(), o backend usa a service role e o ID retornado pe
 
 A quantidade é absoluta (não um incremento); 0 remove, 1–1000 define a quantidade. Preço vem de products e é atualizado quando o item é alterado. A preparação revalida todos os preços e bloqueia itens inativos antes de mudar para SENT_TO_WHATSAPP. Apresente o valor retornado ao cliente; ele pode mudar desde a adição ao carrinho.
 
-Carrinhos fechados não aceitam mudanças por essas funções. Uma segunda preparação retorna erro de estado; após timeout, consulte o carrinho antes de tentar novamente. Nenhuma função marca como pago. Quando houver pagamento, será necessário um fluxo separado e idempotente, com confirmação confiável do provedor e validação do valor.
+Carrinhos fechados não aceitam mudanças por essas funções. Uma segunda preparação retorna erro de estado; após timeout, consulte o carrinho antes de tentar novamente. Nenhuma função marca como pago. O novo plano prevê conferência manual pelo administrador após atendimento no WhatsApp, sem gateway/provedor. A etapa 2 prepara pedidos/liberações atômicos; a integração será feita nas etapas 5–8. Não chamar `teorema_prepare_cart` antes da nova `teorema_create_order`: a função antiga fecha o carrinho sem criar pedido.
 
 Não existe endpoint novo nem checkout/pagamento implementado nesta correção de banco. O site continua atendendo compras pelo WhatsApp. As funções ficam disponíveis para conectar o carrinho posteriormente, sem abrir escrita direta ao navegador.
 
@@ -67,7 +69,7 @@ Não existe endpoint novo nem checkout/pagamento implementado nesta correção d
 - Itens 06–11: dados históricos a revisar, sem apagar ou sobrescrever automaticamente.
 - Item 12: funções privilegiadas adicionais acessíveis por API; precisam de auditoria individual. Não revogue funções desconhecidas sem verificar seus consumidores.
 - Constraints NOT VALID não significam que a tabela antiga foi saneada. Valide-as somente após revisão dos registros históricos.
-- Não foi criada unicidade de CPF nem feita mesclagem de contas: isso exige verificar duplicidades e regras comerciais primeiro.
+- A unicidade de CPF existente foi preservada; não foi criada uma nova nem feita mesclagem de contas.
 
 ## Verificação funcional depois da aplicação
 
