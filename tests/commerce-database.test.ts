@@ -3,12 +3,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
+import type { CartResult, CartSnapshot } from "../lib/cart-contract";
 
 const sql = (name: string) => readFileSync(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), "utf8");
 const baseline = ["20261004005128_teorema_accounts_catalog_security", "20261004005139_teorema_carts_security", "20261004005326_teorema_catalog_policy_cleanup"];
 const commerce = sql("20261005004458_teorema_pdf_orders_access");
 const verification = readFileSync(new URL("../supabase/verify-commerce.sql", import.meta.url), "utf8");
 const adminProducts = sql("20261005235705_teorema_admin_product_uploads");
+const cartSync = sql("20261006155743_teorema_cart_sync");
 const admin = "00000000-0000-4000-8000-000000000010";
 const alice = "00000000-0000-4000-8000-000000000011";
 const bob = "00000000-0000-4000-8000-000000000012";
@@ -16,6 +18,97 @@ const unconfirmed = "00000000-0000-4000-8000-000000000013";
 const pdf1 = "10000000-0000-4000-8000-000000000001";
 const pdf2 = "10000000-0000-4000-8000-000000000002";
 const prices = { [pdf1]: 39.90, [pdf2]: 29.90 };
+
+test("stage 5: atomic cart merge, ownership, revisions, retries and current prices", async t => {
+  const db = await setup();
+  const read = async (owner = alice) => (await db.query<{ value: CartSnapshot }>("select teorema_read_cart($1) as value", [owner])).rows[0].value;
+  const sync = async (owner: string, snapshot: CartSnapshot, add: string[] = [], remove: string[] = [], op = randomUUID()) =>
+    (await db.query<{ value: CartResult }>("select teorema_sync_cart($1,$2,$3,$4,$5,$6) as value", [owner, op, snapshot.id, snapshot.revision, add, remove])).rows[0].value;
+  let initial: CartSnapshot, first: CartResult;
+  const firstKey = randomUUID();
+  try {
+    await seed(db);
+    await db.exec("reset role"); await db.exec(adminProducts); await db.exec(cartSync); await db.exec("set role service_role");
+    await t.test("reading does not create a cart; merging two IDs stores one unit and exact cents", async () => {
+      initial = await read(); assert.equal(initial.id, null); assert.equal(initial.totalCents, 0);
+      first = await sync(alice, initial, [pdf1, pdf2, pdf1], [], firstKey);
+      assert.equal(first.cart.items.length, 2); assert.equal(first.cart.totalCents, 6980);
+      assert.deepEqual(first.acceptedIds, [pdf1, pdf2]);
+      assert.deepEqual((await db.query("select quantity from cart_items")).rows, [{ quantity: 1 }, { quantity: 1 }]);
+      assert.equal((await read(bob)).items.length, 0);
+    });
+    await t.test("lost-response retry returns latest cart without resurrecting a removed item", async () => {
+      const removed = await sync(alice, first.cart, [], [pdf1]);
+      const replay = await sync(alice, initial, [pdf1, pdf2, pdf1], [], firstKey);
+      assert.equal(replay.cart.revision, removed.cart.revision);
+      assert.deepEqual(replay.cart.items.map(item => item.id), [pdf2]);
+      await assert.rejects(sync(alice, initial, [pdf1], [], firstKey), /Operation key reused/);
+      await assert.rejects(sync(alice, first.cart, [], [pdf2]), /Cart changed/);
+      await assert.rejects(sync(bob, removed.cart, [], [pdf2]), /Cart changed/);
+    });
+    await t.test("reprice uses catalog cents and exposes previous price; no write on read", async () => {
+      await db.query("update products set price=29.91 where id=$1", [pdf2]);
+      const current = await read();
+      assert.equal(current.totalCents, 2991); assert.equal(current.items[0].priceChanged, true);
+      assert.equal(current.items[0].previousPriceCents, 2990);
+      await db.query("update products set is_active=false,publication_status='UNPUBLISHED' where id=$1", [pdf2]);
+      const blocked = await read(); assert.equal(blocked.hasBlockedItems, true); assert.equal(blocked.totalCents, 0);
+      const rejected = await sync(alice, blocked, [pdf2, randomUUID()]);
+      assert.equal(rejected.rejected.length, 2); assert.equal(rejected.acceptedIds.length, 0);
+      await sync(alice, rejected.cart, [], [pdf2]);
+      await db.query("update products set price=29.90,is_active=true,publication_status='PUBLISHED' where id=$1", [pdf2]);
+    });
+    await t.test("confirmed account required and acquired PDFs cannot be merged again", async () => {
+      await assert.rejects(read(unconfirmed), /Confirmed account/);
+      const merged = await sync(alice, await read(), [pdf1, pdf2]);
+      const purchased = await order(db, alice, merged.cart.id!);
+      await db.query("select teorema_confirm_order($1,$2)", [admin, purchased]);
+      const result = await sync(alice, await read(), [pdf1, pdf2]);
+      assert.deepEqual(result.rejected.map(item => item.reason), ["owned", "owned"]);
+      assert.equal(result.cart.items.length, 0);
+    });
+    await t.test("50-item limit preserves stored selection and returns excess IDs explicitly", async () => {
+      const extra = Array.from({ length: 51 }, () => randomUUID());
+      for (const id of extra) {
+        await db.query("insert into products(id,name,description,price,image_url,is_active,publication_status) values($1,'Fixture','Synthetic material',0.01,'https://example.test/cover.jpg',false,'DRAFT')", [id]);
+        await file(db, id);
+        await db.query("update products set is_active=true,publication_status='PUBLISHED' where id=$1", [id]);
+      }
+      const start = await sync(bob, await read(bob), extra.slice(0, 49));
+      const overflow = await sync(bob, start.cart, extra.slice(49));
+      assert.equal(overflow.cart.items.length, 50); assert.equal(overflow.cart.totalCents, 50);
+      assert.deepEqual(overflow.rejected, [{ id: extra[50], reason: "limit" }]);
+      assert.equal(overflow.acceptedIds.length, 1);
+      await assert.rejects(sync(bob, overflow.cart, extra), /Invalid selection/);
+    });
+    await t.test("clients cannot call RPCs or inspect retry journal; legacy writers retired", async () => {
+      await assert.rejects(db.query("select teorema_set_cart_item($1,$2,$3,2)", [bob, (await read(bob)).id, pdf1]), /permission denied/);
+      for (const role of ["anon", "authenticated"]) {
+        await db.exec(`reset role; set role ${role}`);
+        const visible = await db.query("select id,name,description,price,image_url from products where is_active=true");
+        assert.ok(visible.rows.length > 0);
+        await assert.rejects(db.exec("select id from products where publication_status='PUBLISHED'"), /permission denied/);
+        await assert.rejects(read(bob), /permission denied/);
+        await assert.rejects(db.exec("select * from teorema_private.cart_operations"), /permission denied/);
+      }
+      await client(db, alice);
+      assert.equal((await db.query("select id from cart_items")).rows.length, 2); // Purchased historical cart, own rows only.
+    });
+  } finally { await db.close(); }
+});
+
+test("stage 5 migration refuses conflicting legacy carts without changing data", async () => {
+  const db = await setup();
+  try {
+    await seed(db); const c = await cart(db);
+    await db.query("select teorema_set_cart_item($1,$2,$3,2)", [alice, c, pdf1]);
+    await db.exec("reset role"); await db.exec(adminProducts);
+    await assert.rejects(db.exec(cartSync), /Review legacy open carts/);
+    await db.exec("rollback");
+    assert.equal((await db.query<{ quantity: number }>("select quantity from cart_items where product_id=$1", [pdf1])).rows[0].quantity, 2);
+    assert.equal((await db.query("select 1 from information_schema.columns where table_name='carts' and column_name='revision'")).rows.length, 0);
+  } finally { await db.close(); }
+});
 
 async function setup(options: { migrate?: boolean; eligibleAdmin?: boolean } = {}) {
   const db = new PGlite();

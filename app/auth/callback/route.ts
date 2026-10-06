@@ -9,8 +9,8 @@ export async function GET(request: Request) {
     try {
       const client = await createClient();
       const { error } = await client.auth.exchangeCodeForSession(code);
-      if (!error) return NextResponse.redirect(new URL(safeNext(url.searchParams.get("next")), url.origin));
+      if (!error) return NextResponse.redirect(new URL(safeNext(url.searchParams.get("next"), "/carrinho"), url.origin));
     } catch { /* Offer a recoverable login screen below. */ }
   }
-  return NextResponse.redirect(new URL("/login?confirmation=invalid", url.origin));
+  return NextResponse.redirect(new URL("/login?confirmation=invalid&next=" + encodeURIComponent(safeNext(url.searchParams.get("next"), "/carrinho")), url.origin));
 }

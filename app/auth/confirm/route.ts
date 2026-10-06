@@ -10,8 +10,8 @@ export async function GET(request: Request) {
     try {
       const client = await createClient();
       const { error } = await client.auth.verifyOtp({ token_hash, type });
-      if (!error) return NextResponse.redirect(new URL(safeNext(url.searchParams.get("next")), url.origin));
+      if (!error) return NextResponse.redirect(new URL(safeNext(url.searchParams.get("next"), "/carrinho"), url.origin));
     } catch { /* No token or internal error details in the response. */ }
   }
-  return NextResponse.redirect(new URL("/login?confirmation=invalid", url.origin));
+  return NextResponse.redirect(new URL("/login?confirmation=invalid&next=" + encodeURIComponent(safeNext(url.searchParams.get("next"), "/carrinho")), url.origin));
 }

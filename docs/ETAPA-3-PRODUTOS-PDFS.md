@@ -1,6 +1,6 @@
 # Etapa 3 — produtos e uploads privados
 
-Status: implementação local verificada e banco/Storage aplicados; **EM VALIDAÇÃO** até ativação na Vercel e ensaio real autenticado. Atualizado em 05/10/2026.
+Status: implementação local verificada e banco/Storage aplicados; **EM VALIDAÇÃO** até ensaio real de PDF/capa/publicação. Atualizado em 05/10/2026. Após configuração manual da Vercel, o responsável mostrou um rascunho salvo com sucesso no painel. A integração Vercel segue sem acesso (403). O responsável adiou o restante do teste real e autorizou iniciar a etapa 4.
 
 ## Entrega
 

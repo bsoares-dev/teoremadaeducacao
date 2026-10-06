@@ -12,8 +12,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [registerHref, setRegisterHref] = useState("/cadastro");
 
   useEffect(() => {
+    const next = new URLSearchParams(window.location.search).get("next");
+    if (next) setRegisterHref("/cadastro?next=" + encodeURIComponent(safeNext(next, "/carrinho")));
     if (new URLSearchParams(window.location.search).get("confirmation") === "invalid") {
       setFeedback("O link de confirmação é inválido, expirou ou foi aberto em outro navegador. Se você já confirmou seu e-mail, entre com sua senha.");
     }
@@ -67,7 +70,7 @@ export default function LoginPage() {
         </form>
 
         {feedback && <p className="auth-feedback" role="alert">{feedback}</p>}
-        <Link className="auth-switch" href="/cadastro">Ainda não tenho uma conta</Link>
+        <Link className="auth-switch" href={registerHref}>Ainda não tenho uma conta</Link>
       </section>
       <p className="auth-footer">A educação transforma quando encontra o próximo passo.</p>
     </main>

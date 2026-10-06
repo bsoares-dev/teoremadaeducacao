@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { signupSchema } from "@/lib/schemas";
+import { safeNext } from "@/lib/auth-policy";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
 
@@ -32,6 +33,8 @@ export default function CadastroScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [destination, setDestination] = useState("/carrinho");
+  useEffect(() => { setDestination(safeNext(new URLSearchParams(window.location.search).get("next"), "/carrinho")); }, []);
 
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,7 +44,7 @@ export default function CadastroScreen() {
     try {
       const parsed = signupSchema.safeParse({ email, password, cpf, phone });
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || "Confira seus dados.");
-      const response = await fetch("/api/register", {
+      const response = await fetch("/api/register?next=" + encodeURIComponent(destination), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),
       });
@@ -52,7 +55,7 @@ export default function CadastroScreen() {
         setNeedsConfirmation(true);
         return;
       }
-      router.push("/carrinho");
+      router.push(destination);
       router.refresh();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "Não foi possível concluir seu cadastro agora.");
@@ -79,7 +82,8 @@ export default function CadastroScreen() {
         {needsConfirmation ? <div className="account-notice" role="status">
           <h2>Confira seu e-mail.</h2>
           <p>Se este endereço puder receber um novo cadastro, você receberá um link para confirmar o acesso. Confira também o spam. Caso já tenha conta, entre pelo login.</p>
-          <Link className="auth-switch" href="/login">Ir para o login</Link>
+          <p>Sua seleção permanece neste navegador. Depois de confirmar, entre para recuperá-la no carrinho.</p>
+          <Link className="auth-switch" href={"/login?next=" + encodeURIComponent(destination)}>Ir para o login</Link>
         </div> : <form className="auth-form register-form" onSubmit={handleRegister}>
           <div className="auth-field register-field-full">
             <label htmlFor="register-email">E-mail</label>
@@ -104,7 +108,7 @@ export default function CadastroScreen() {
         </form>}
 
         {feedback && <p className="auth-feedback" role="alert">{feedback}</p>}
-        <Link className="auth-switch" href="/login">Já tenho uma conta</Link>
+        <Link className="auth-switch" href={"/login?next=" + encodeURIComponent(destination)}>Já tenho uma conta</Link>
       </section>
       <p className="auth-footer">A educação transforma quando encontra o próximo passo.</p>
     </main>

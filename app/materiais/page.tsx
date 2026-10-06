@@ -1,22 +1,37 @@
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { pagination } from "@/lib/schemas";
+import type { Metadata } from "next";
+import { publicCover, selectionPreviewEnabled } from "@/lib/catalog-selection";
+import { cartPreviewEnabled } from "@/lib/cart-contract";
+import Catalog from "./catalog";
+import "./catalog.css";
 
 const whatsappNumber = "5548935011911";
 
 
-function getWhatsappUrl(title: string) {
-  const message = `Olá! Tenho interesse no material ${title} e gostaria de saber como adquirir.`;
-  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-}
+export const metadata: Metadata = {
+  title: "Materiais de estudo em PDF | Teorema da Educação",
+  description: "Conheça os materiais digitais do Teorema da Educação. Conteúdos de Anderson e Mariana para estudar com clareza e propósito.",
+  robots: process.env.VERCEL_ENV === "preview" || process.env.NODE_ENV === "development" ? { index: false, follow: false } : { index: true, follow: true },
+  openGraph: { title: "Materiais do Teorema da Educação", description: "Conhecimento para acompanhar seu próximo passo. Conheça nossos materiais de estudo em PDF.", type: "website", locale: "pt_BR" },
+};
 
 export default async function MaterialsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const { page, from, to } = pagination((await searchParams).page || null, 12);
-  const client = await createClient();
-  const { data: materials, error, count } = await client.from("products")
+  const selectionEnabled = selectionPreviewEnabled(process.env);
+  const result = await (async () => {
+    try {
+      const client = await createClient();
+      return await client.from("products")
     .select("id,name,description,price,image_url", { count: "exact" })
     .eq("is_active", true)
+    // Database constraint makes is_active equivalent to PUBLISHED. The public
+    // role intentionally cannot SELECT the internal publication_status column.
     .order("created_at", { ascending: false }).order("id").range(from, to);
+    } catch { return { data: null, error: true, count: null }; }
+  })();
+  const { data: materials, error, count } = result;
 
   return (
     <main className="materials-page">
@@ -48,23 +63,13 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
         </div>
 
         {error && <p role="alert">Não foi possível carregar os materiais. <Link href="/materiais">Tentar novamente</Link></p>}
-        {!error && !materials?.length && <p>Nenhum material disponível nesta página. Fale com nossa equipe ou volte à primeira página.</p>}
-        <div className="materials-grid">
-          {(materials || []).map((material, index) => (
-            <article className={`material-sale-card material-sale-card-${index % 3 + 1}`} key={material.id}>
-              <div className="material-card-number">0{index + 1}</div>
-              {material.image_url?.startsWith("https://") && <img className="catalog-image" src={material.image_url} alt={material.name} loading="lazy" referrerPolicy="no-referrer" />}
-              <h3>{material.name}</h3>
-              <p>{material.description}</p>
-              <div className="material-card-footer">
-                <span>{Number(material.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
-                <a href={getWhatsappUrl(material.name)} target="_blank" rel="noreferrer">
-                  Quero adquirir <span>↗</span>
-                </a>
-              </div>
-            </article>
-          ))}
-        </div>
+        {!error && !materials?.length && <div className="catalog-empty"><h3>{page > 1 ? "Nenhum material nesta página." : "Novos caminhos estão sendo preparados."}</h3>
+          <p>{page > 1 ? "Volte ao início do catálogo para conferir os materiais disponíveis." : "Em breve, você encontrará nossos materiais por aqui. Converse com a equipe para conhecer o projeto."}</p>
+          {page > 1 && <Link href="/materiais">Voltar à primeira página</Link>}</div>}
+        {!error && <Catalog selectionEnabled={selectionEnabled} cartEnabled={cartPreviewEnabled(process.env)} materials={(materials || []).map(material => ({
+          id: material.id, name: material.name, description: material.description, price: Number(material.price),
+          image_url: publicCover(material.image_url, process.env.NEXT_PUBLIC_SUPABASE_URL),
+        }))} />}
         {!error && <nav className="pagination" aria-label="Páginas do catálogo">
           {page > 1 && <Link href={"/materiais?page=" + (page - 1)}>Anterior</Link>}
           <span>Página {page}</span>

@@ -23,7 +23,7 @@ Next.js + TypeScript + Supabase Auth/Postgres. O estilo usa CSS do projeto (não
 - /perfil, /admin, /carrinho: autenticação validada no servidor.
 - /admin: listagem de usuários e nova gestão de produtos/PDFs preparada localmente. Ativação depende da migração, buckets e variável servidor; ver etapa 3. Cadastro antigo que publicava sem PDF desativado.
 - /materiais: produtos do banco, consultas paginadas, compra assistida via WhatsApp.
-- /carrinho: estado vazio protegido. Pagamento, pedidos e liberação de PDFs ainda não implementados.
+- /carrinho: carrinho persistido por conta em prévia controlada; produção mantém o estado vazio protegido. Pedido/WhatsApp e liberação de PDFs ainda não integrados.
 
 ## Banco / publicação
 Leia [docs/SECURITY.md](docs/SECURITY.md) antes de publicar.
@@ -36,7 +36,11 @@ As correções foram aplicadas ao projeto Supabase remoto em 04/10/2026 UTC. Con
 ## Venda de PDFs — execução por etapas
 
 [Plano numerado](docs/PLANO-VENDA-PDFS.md): etapa 1 aprovada; estrutura da etapa 2 aplicada no Supabase atual em 04/10/2026, após autorização explícita. [Modelagem, contratos, Storage, evidências e recuperação](docs/ETAPA-2-BANCO-PDFS.md).
-Migrações `20261005004458_teorema_pdf_orders_access.sql`, `20261005004940_teorema_commerce_fk_indexes.sql` e `20261005235705_teorema_admin_product_uploads.sql` já registradas remotamente: não reaplicar nem executar `db reset` em produção. `node scripts/check-commerce.mjs` verifica a API somente leitura. [Etapa 3](docs/ETAPA-3-PRODUTOS-PDFS.md): painel/upload implementados; três buckets criados e verificados no Supabase atual. Para ativar, definir `TEOREMA_PRODUCT_UPLOADS_ENABLED=true` em Production na Vercel e redeploy. Integração Vercel retornou 403; variável ainda não configurada por esta sessão. A aplicação não ganhou checkout ou biblioteca/download de PDFs.
+Migrações `20261005004458_teorema_pdf_orders_access.sql`, `20261005004940_teorema_commerce_fk_indexes.sql` e `20261005235705_teorema_admin_product_uploads.sql` já registradas remotamente: não reaplicar nem executar `db reset` em produção. `node scripts/check-commerce.mjs` verifica a API somente leitura. [Etapa 3](docs/ETAPA-3-PRODUTOS-PDFS.md): painel/upload implementados; três buckets criados e verificados no Supabase atual. Após configuração manual de `TEOREMA_PRODUCT_UPLOADS_ENABLED=true` e chave administrativa na Vercel, o responsável demonstrou gravação de rascunho. Upload/capa/publicação reais foram adiados. A integração Vercel permanece com 403.
+
+[Etapa 4](docs/ETAPA-4-CATALOGO-SELECAO.md): vitrine publicada, capas otimizadas e seleção de PDFs implementadas em prévia. `TEOREMA_CATALOG_SELECTION_ENABLED=true` habilita a seleção somente em desenvolvimento local ou Vercel Preview, nunca Production. `node scripts/check-catalog-browser.mjs` verifica a interface com fixtures locais (requer Playwright e Edge; `PLAYWRIGHT_MODULE` permite usar uma instalação existente).
+
+[Etapa 5](docs/ETAPA-5-CARRINHO.md): carrinho por conta, mesclagem após autenticação, preços do servidor e recuperação idempotente. Migração `20261006155743_teorema_cart_sync.sql` aplicada e verificada no Supabase em 06/10/2026. Requer `TEOREMA_CART_ENABLED=true`, além da flag da etapa 4, somente em desenvolvimento/Preview. `node scripts/check-cart-browser.mjs` verifica navegador → API → SQL real em PGlite isolado, com Auth/REST simulados. Não há checkout ou biblioteca/download integrados.
 
 ## Testes de banco
 Os testes criam um PostgreSQL em memória (PGlite) com fixtures sintéticas de auth.users.

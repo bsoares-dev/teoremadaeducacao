@@ -1,6 +1,7 @@
 import { signupSchema } from "@/lib/schemas";
 import { privateJson, readJson } from "@/lib/http";
 import { createClient } from "@/utils/supabase/server";
+import { safeNext } from "@/lib/auth-policy";
 
 export async function POST(request: Request) {
   let input;
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
       email: input.email, password: input.password,
       options: {
         data: { cpf: input.cpf, phone: input.phone },
-        emailRedirectTo: new URL("/auth/callback?next=/carrinho", request.url).toString(),
+        emailRedirectTo: new URL("/auth/callback?next=" + encodeURIComponent(safeNext(new URL(request.url).searchParams.get("next"), "/carrinho")), request.url).toString(),
       },
     });
     if (error) return privateJson({ error: error.status === 429 ? "Muitas tentativas. Aguarde alguns minutos." : "Não foi possível criar a conta. Confira seus dados ou tente entrar se já tiver cadastro." }, error.status === 429 ? 429 : 400);

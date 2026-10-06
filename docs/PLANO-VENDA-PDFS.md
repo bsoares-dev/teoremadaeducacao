@@ -2,7 +2,7 @@
 
 ## Documento de referência
 
-Versão 6, atualizada em 05/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapa 3 EM VALIDAÇÃO, com implementação testada e banco/Storage aplicados após autorização; etapas 4–10 PENDENTES. Ativação da variável na Vercel e ensaio real autenticado ainda pendentes: conexão Vercel retornou 403 no escopo do projeto. Não houve homologação isolada completa nem publicação do fluxo comercial.
+Versão 9, atualizada em 06/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapa 3 EM VALIDAÇÃO, com gravação de rascunho demonstrada pelo responsável em produção; etapas 4 e 5 implementadas em prévia local, EM VALIDAÇÃO integrada; etapas 6–10 PENDENTES. O responsável adiou o ensaio real de upload/publicação da etapa 3 e autorizou iniciar a etapa 5. Migração de carrinho aplicada e verificada no Supabase; commit/push autorizados como rotina ao concluir etapas. A integração Vercel retornou 403 na última consulta; não houve ativação do fluxo comercial.
 Este documento é a referência para comandos como “faça a etapa 4”. Manter a numeração estável; registrar mudanças de escopo e decisões aqui.
 O comando “faça a etapa 1” autorizou sua documentação e seus wireframes locais. Não altera aplicação, banco, Storage, Vercel ou autoriza publicação de recursos.
 
@@ -19,7 +19,7 @@ Não haverá gateway de pagamento, webhook de pagamento ou WhatsApp Business API
 - Supabase Auth e profiles, catálogo products, tabelas carts/cart_items, permissões e funções de carrinho já protegidas.
 - Painel atual lista usuários e cadastra metadados de produtos, mas ainda não gerencia arquivos nem liberações.
 - /materiais consulta produtos, mas ainda encaminha compras diretamente ao WhatsApp.
-- /carrinho é uma tela protegida de estado vazio: sua interface funcional ainda será construída.
+- /carrinho possui interface funcional em prévia controlada na etapa 5; produção mantém o estado vazio protegido até a integração comercial.
 - As funções de carrinho atuais não substituem pedidos nem direitos de acesso. Evoluí-las por novas migrações, preservando dados e histórico.
 - Integrações Supabase e Vercel disponíveis. Instalação/conexão não autoriza alterações fora da etapa solicitada.
 
@@ -94,7 +94,7 @@ Aceite: dois clientes de teste não acessam dados entre si, não alteram preço/
 
 Status: EM VALIDAÇÃO. Dependências: 1, 2. Implementação local autorizada com “pode iniciar a etapa 3” e retomada com pedido para concluir os testes. [Entrega, evidências e ativação pendente](ETAPA-3-PRODUTOS-PDFS.md).
 
-Implementado: rascunho/edição/publicação/despublicação/arquivamento, revisão concorrente, uploads TUS para staging privado, validação no servidor, capas WebP, histórico imutável e limpeza explícita de temporários expirados. 36 testes passaram; lint/tipos/build verificados. Migração `20261005235705` e três buckets aplicados após autorização em 05/10/2026, sem upgrade. Perfil preservado, RLS/RPCs e configuração Storage verificados. Ativação na Vercel impedida por 403 da integração; variável Production ainda pendente. Aceite real de admin/aluno e upload permanece pendente; não tratar como etapa concluída integralmente.
+Implementado: rascunho/edição/publicação/despublicação/arquivamento, revisão concorrente, uploads TUS para staging privado, validação no servidor, capas WebP, histórico imutável e limpeza explícita de temporários expirados. 36 testes passaram; lint/tipos/build verificados. Migração `20261005235705` e três buckets aplicados após autorização em 05/10/2026, sem upgrade. Perfil preservado, RLS/RPCs e configuração Storage verificados. Após configuração manual da Vercel, o responsável demonstrou gravação de rascunho; upload/capa/publicação e teste real de aluno permanecem adiados. Não tratar como etapa concluída integralmente.
 
 Entregas:
 - Criar/editar título, descrição, preço, capa e arquivo PDF.
@@ -109,7 +109,7 @@ Aceite: admin publica um material real de teste; aluno não consegue enviar/subs
 
 ## Etapa 4 — Vitrine e seleção dos PDFs
 
-Status: PENDENTE. Dependências: 1, 2, 3.
+Status: EM VALIDAÇÃO integrada; implementação de prévia local concluída. Dependências: 1 e 2 concluídas; teste real de upload/publicação da etapa 3 adiado pelo responsável, que autorizou avançar com “vou deixar para depois... pode começar a etapa 4”. [Entrega, contrato e verificações](ETAPA-4-CATALOGO-SELECAO.md).
 
 Entregas:
 - Atualizar /materiais com produtos publicados e respectivos títulos, capas, descrições e preços.
@@ -122,7 +122,7 @@ Aceite: materiais exibidos refletem o admin; visitante seleciona mais de um PDF 
 
 ## Etapa 5 — Carrinho funcional e continuidade de autenticação
 
-Status: PENDENTE. Dependências: 2, 4.
+Status: EM VALIDAÇÃO integrada; implementação local entregue e migração aplicada/verificada remotamente. Dependências: 2 e prévia da 4. [Contrato, ativação e testes](ETAPA-5-CARRINHO.md).
 
 Entregas:
 - Substituir a tela vazia por lista de PDFs, valores, remover item, total e continuar comprando.
@@ -215,7 +215,7 @@ Aceite: fluxo publicado e validado no domínio real, admin consegue operá-lo e 
 - Não marcar concluída com placeholders, comportamento simulado ou integração essencial pendente. Separar status local/homologação/produção.
 - Não renumerar etapas. Mudanças devem entrar em uma seção de decisões/revisões para manter comandos anteriores válidos.
 - Segurança e testes acompanham todas as etapas; a etapa 9 é a homologação integrada, não o início da segurança.
-- Executar uma etapa autoriza seu trabalho local e testes em ambiente seguro; alterações em produção, custos, migrações remotas, envio de mensagens, commit/push e deploy precisam de autorização explícita quando não estiverem incluídos no comando.
+- Autorização permanente de 06/10/2026: ao concluir cada etapa solicitada e validada, aplicar somente as novas migrações necessárias, verificar e fazer commit/push sem pedir nova confirmação de rotina. Preservar dados e histórico; parar em conflito, falha ou risco destrutivo que exija decisão. Não autoriza iniciar outra etapa, contratar recursos, enviar mensagens, alterar segredos ou remover travas comerciais. Push pode acionar o deploy automático existente; não afirmar sucesso do deploy sem verificar.
 - Antes de iniciar uma etapa de Supabase/Next.js/Vercel, reler as skills aplicáveis e verificar documentação atual. O plano não substitui inspeção do estado real.
 
 ## Registro de decisões e execução
@@ -224,9 +224,9 @@ Aceite: fluxo publicado e validado no domínio real, admin consegue operá-lo e 
 | --- | --- | --- |
 | 1 | CONCLUÍDA | D01/D02 confirmadas; especificação e nove wireframes verificados localmente e aprovados pelo responsável em 04/10/2026 |
 | 2 | CONCLUÍDA (estrutura) | Migrações e índices aplicados no Supabase após autorização; 24 testes locais e smoke de API real; bucket/fluxo integrado nas etapas 3–9 |
-| 3 | PENDENTE | Sem upload/admin de PDFs |
-| 4 | PENDENTE | Vitrine atual ainda usa CTA direto de WhatsApp |
-| 5 | PENDENTE | Carrinho atual é placeholder |
+| 3 | EM VALIDAÇÃO | Banco/Storage aplicados; responsável demonstrou rascunho salvo em produção; upload/capa/publicação reais adiados |
+| 4 | EM VALIDAÇÃO integrada | Catálogo + seleção + contador do carrinho; filtro público corrigido sem ampliar grants; produção bloqueada até pedido/WhatsApp e aceite |
+| 5 | EM VALIDAÇÃO integrada | Carrinho por conta, preços, revisão e retries verificados localmente; migração aplicada/verificada; ensaio integrado real pendente |
 | 6 | PENDENTE | Sem pedido persistido integrado ao WhatsApp |
 | 7 | PENDENTE | Sem liberação administrativa por pedido |
 | 8 | PENDENTE | Sem biblioteca privada |
@@ -234,6 +234,24 @@ Aceite: fluxo publicado e validado no domínio real, admin consegue operá-lo e 
 | 10 | PENDENTE | Nenhuma publicação deste escopo autorizada |
 
 Referência: [Supabase Storage — buckets privados e links temporários](https://supabase.com/docs/guides/storage/buckets/fundamentals).
+
+### Revisão de 05/10/2026 — etapa 4
+
+- Responsável demonstrou mensagem “Dados salvos” na edição de um rascunho após configurar a Vercel. Isso comprova gravação administrativa, não upload nem publicação de PDF.
+- O responsável adiou esses testes e autorizou expressamente seguir para a etapa 4; a pendência não bloqueia o desenvolvimento isolado da vitrine.
+- `/materiais` retorna somente metadados públicos e capas do bucket permitido. Revisão da etapa 5: filtra `is_active=true`; a constraint do banco garante equivalência com `publication_status=PUBLISHED`. Consultar a coluna privada diretamente exigia grant inexistente. Capas otimizadas com Next Image.
+- Seleção guarda apenas UUIDs únicos, até 50, em chave versionada; API somente leitura revalida disponibilidade e acessos próprios via sessão verificada e RLS, sem chave administrativa.
+- `TEOREMA_CATALOG_SELECTION_ENABLED=true` habilita somente desenvolvimento local ou Vercel Preview. Produção permanece bloqueada mesmo com a flag true; etapa 5 preservou a trava até pedido/WhatsApp e aceite de publicação.
+- Nenhum SQL, bucket, upload, pedido, acesso, commit, push ou deploy executado na etapa 4. Próximo desenvolvimento: etapa 5, por comando do responsável.
+
+### Revisão de 06/10/2026 — etapa 5
+
+- Responsável autorizou iniciar a etapa 5 e retomar os trabalhos. Interface, API, contratos e migração local do carrinho implementados; produção não foi alterada.
+- Carrinho por conta, merge pós-login, preços calculados no servidor, recuperação idempotente por operação e revisão para concorrência. Limite de 50 PDFs, sem duplicação; indisponíveis/adquiridos são sinalizados.
+- 54 testes automatizados aprovados. Ensaio local navegador → API → SQL aprovado com Auth/REST simulados, duas contas, falha após commit, retry, mudança de preço, remoção, sessão encerrada e confirmação; quatro larguras sem overflow.
+- Correção de consulta pública do catálogo sem ampliar grants; contador passa a incluir itens persistidos. Flags permanecem restritas a desenvolvimento/Preview até integração comercial.
+- Continuação autorizada: migração registrada como `20261006155743_teorema_cart_sync.sql` e verificada no Supabase. Zero carrinhos/itens antes/depois; permissões restritas ao servidor e RLS preservadas. Commit/push autorizados como rotina ao terminar etapas; homologação real permanece pendente.
+- Etapa 6 não iniciada. Botão de pedido desabilitado com explicação de prévia; nenhum pedido, mensagem ou acesso a PDF é criado pela nova interface.
 
 ### Revisão de 04/10/2026 — etapa 1
 
