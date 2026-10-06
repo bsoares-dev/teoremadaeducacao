@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/auth-policy";
 import { SessionGuard } from "@/app/components/session-controls";
 import AdminDashboard from "./dashboard";
+import "./catalog.css";
 
 export default async function AdminPage() {
   const { user } = await requireUser("/admin");

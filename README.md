@@ -21,7 +21,7 @@ Next.js + TypeScript + Supabase Auth/Postgres. O estilo usa CSS do projeto (não
 - /auth/callback e /auth/confirm: confirmação e sessão.
 - /login: vai ao perfil (ou admin autorizado); aceita apenas destinos internos permitidos.
 - /perfil, /admin, /carrinho: autenticação validada no servidor.
-- /admin: e-mail administrativo confirmado, listagem paginada e inclusão de produtos.
+- /admin: listagem de usuários e nova gestão de produtos/PDFs preparada localmente. Ativação depende da migração, buckets e variável servidor; ver etapa 3. Cadastro antigo que publicava sem PDF desativado.
 - /materiais: produtos do banco, consultas paginadas, compra assistida via WhatsApp.
 - /carrinho: estado vazio protegido. Pagamento, pedidos e liberação de PDFs ainda não implementados.
 
@@ -35,8 +35,8 @@ As correções foram aplicadas ao projeto Supabase remoto em 04/10/2026 UTC. Con
 
 ## Venda de PDFs — execução por etapas
 
-[Plano numerado](docs/PLANO-VENDA-PDFS.md): etapa 1 aprovada; etapa 2 modelada/testada localmente e em validação para homologação real, sem aplicação remota. [Modelagem, contratos, Storage e recuperação](docs/ETAPA-2-BANCO-PDFS.md).
-A nova migração `20261004235755_teorema_pdf_orders_access.sql` ainda não está aplicada no Supabase. Não executar scripts de criação antigos nem `db reset` em produção. Homologação isolada e publicação exigem autorização; o fluxo atual da aplicação permanece inalterado.
+[Plano numerado](docs/PLANO-VENDA-PDFS.md): etapa 1 aprovada; estrutura da etapa 2 aplicada no Supabase atual em 04/10/2026, após autorização explícita. [Modelagem, contratos, Storage, evidências e recuperação](docs/ETAPA-2-BANCO-PDFS.md).
+Migrações `20261005004458_teorema_pdf_orders_access.sql`, `20261005004940_teorema_commerce_fk_indexes.sql` e `20261005235705_teorema_admin_product_uploads.sql` já registradas remotamente: não reaplicar nem executar `db reset` em produção. `node scripts/check-commerce.mjs` verifica a API somente leitura. [Etapa 3](docs/ETAPA-3-PRODUTOS-PDFS.md): painel/upload implementados; três buckets criados e verificados no Supabase atual. Para ativar, definir `TEOREMA_PRODUCT_UPLOADS_ENABLED=true` em Production na Vercel e redeploy. Integração Vercel retornou 403; variável ainda não configurada por esta sessão. A aplicação não ganhou checkout ou biblioteca/download de PDFs.
 
 ## Testes de banco
 Os testes criam um PostgreSQL em memória (PGlite) com fixtures sintéticas de auth.users.

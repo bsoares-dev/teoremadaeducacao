@@ -1,7 +1,7 @@
 -- Teorema da Educação
 -- Schema LEGADO: mantido para recuperação de registrations.
 -- Para a base atual use audit.sql e migrations/20261004005128_teorema_accounts_catalog_security.sql.
--- Pedidos/PDFs: consulte docs/ETAPA-2-BANCO-PDFS.md; migração nova ainda não aplicada remotamente.
+-- Pedidos/PDFs: consulte docs/ETAPA-2-BANCO-PDFS.md; migrações 20261005004458/20261005004940 já aplicadas remotamente.
 
 create table if not exists public.registrations (
   id text primary key,

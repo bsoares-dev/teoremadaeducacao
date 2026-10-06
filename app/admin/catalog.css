@@ -1,0 +1,47 @@
+.catalog-manager { min-width: 0; }
+.catalog-toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+.catalog-manager button { min-height: 44px; cursor: pointer; }
+.catalog-manager button:disabled { cursor: not-allowed; opacity: .5; }
+.catalog-toolbar button, .publication-actions button, .product-list button { border: 1px solid #0f284033; background: transparent; color: #0f2840; padding: 12px 16px; font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+.catalog-manager :is(button,select,input,summary):focus-visible { outline: 2px solid #195681; outline-offset: 4px; }
+.catalog-editor { padding: clamp(20px, 3vw, 36px); background: #ffffffb0; border: 1px solid #93846c33; }
+.catalog-editor-heading { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+.catalog-editor-heading h3, .catalog-list-title { font-family: "Playfair Display", Georgia, serif; font-weight: 500; font-size: clamp(27px, 3vw, 36px); margin: 12px 0 24px; }
+.catalog-editor-heading img { object-fit: cover; border-radius: 4px; }
+.catalog-editor .product-form { display: block; max-width: none; padding: 0; box-shadow: none; background: transparent; }
+.catalog-editor fieldset { min-width: 0; margin: 0; padding: 0; border: none; }
+.catalog-editor .product-form fieldset { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 22px; }
+.catalog-editor .product-form button { justify-content: center; }
+.catalog-hint, .material-upload p, .publication-actions p { font-size: 13px; color: #5b6870; line-height: 1.65; }
+.material-upload { border-top: 1px solid #93846c44; margin-top: 32px; padding-top: 28px; }
+.material-upload fieldset { display: grid; gap: 20px; }
+.material-upload legend { font-family: "Playfair Display", Georgia, serif; font-size: 24px; margin-bottom: 18px; }
+.material-upload label { display: grid; gap: 10px; color: #78684f; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; overflow-wrap: anywhere; }
+.material-upload :is(input,select) { max-width: 100%; min-width: 0; padding: 12px; border: 1px solid #93846c55; background: #f7f5f0; color: #0f2840; font-size: 16px; text-transform: none; }
+.upload-dropzone { padding: 22px; border: 1px dashed #93846c; background: #f7f5f0; }
+.upload-dropzone input { border: 0; padding: 0; width: 100%; }
+.material-upload button, .publication-actions button:first-of-type { background: #0f2840; color: #f7f5f0; border: 0; padding: 16px; font-size: 12px; font-weight: 700; }
+.upload-progress { margin-top: 20px; }
+.upload-progress progress { width: 100%; accent-color: #195681; }
+.upload-progress span { font-size: 12px; color: #5b6870; }
+.publication-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0; }
+.publication-actions p { flex-basis: 100%; }
+.version-history { border-top: 1px solid #93846c44; padding-top: 20px; margin-top: 20px; }
+.version-history summary { cursor: pointer; padding: 8px 0; font-size: 14px; font-weight: 700; }
+.version-history > div { display: grid; gap: 8px; padding: 18px 0; border-bottom: 1px solid #93846c22; overflow-wrap: anywhere; }
+.version-history strong { font-size: 14px; }
+.version-history span { font-size: 12px; color: #5b6870; }
+.catalog-list-title { margin-top: 42px; }
+.catalog-manager .product-list article { border: 1px solid #93846c33; padding: 20px; }
+.catalog-manager .product-list article.selected { border-color: #195681; }
+.catalog-manager .product-list p { overflow-wrap: anywhere; }
+.cover-placeholder { width: 120px; height: 120px; background: #0f2840; color: #b1a28b; display: grid; place-items: center; font-family: Georgia, serif; font-size: 48px; }
+@media (max-width: 600px) {
+  .catalog-editor .product-form fieldset { grid-template-columns: minmax(0, 1fr); }
+  .catalog-editor .product-form-wide, .catalog-editor .product-form button { grid-column: 1; }
+  .catalog-toolbar button { flex: 1 1 130px; }
+  .catalog-manager .product-list article { grid-template-columns: 64px minmax(0, 1fr); padding: 14px; }
+  .catalog-manager .product-list img, .cover-placeholder { width: 64px; height: 80px; }
+  .cover-placeholder { font-size: 32px; }
+  .publication-actions button { flex: 1 1 120px; }
+}

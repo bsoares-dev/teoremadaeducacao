@@ -6,8 +6,9 @@ import { PGlite } from "@electric-sql/pglite";
 
 const sql = (name: string) => readFileSync(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), "utf8");
 const baseline = ["20261004005128_teorema_accounts_catalog_security", "20261004005139_teorema_carts_security", "20261004005326_teorema_catalog_policy_cleanup"];
-const commerce = sql("20261004235755_teorema_pdf_orders_access");
+const commerce = sql("20261005004458_teorema_pdf_orders_access");
 const verification = readFileSync(new URL("../supabase/verify-commerce.sql", import.meta.url), "utf8");
+const adminProducts = sql("20261005235705_teorema_admin_product_uploads");
 const admin = "00000000-0000-4000-8000-000000000010";
 const alice = "00000000-0000-4000-8000-000000000011";
 const bob = "00000000-0000-4000-8000-000000000012";
@@ -52,7 +53,10 @@ async function setup(options: { migrate?: boolean; eligibleAdmin?: boolean } = {
     await db.query("insert into auth.users(id,email,raw_user_meta_data,email_confirmed_at) values($1,$2,$3,$4)",
       [id, email, JSON.stringify({ cpf: syntheticCpf(fixtureNumber++), phone: "48999999999" }), confirmed ? "2026-10-04T12:00:00Z" : null]);
   }
-  if (options.migrate !== false) await db.exec(commerce);
+  if (options.migrate !== false) {
+    await db.exec(commerce);
+    await db.exec(sql("20261005004940_teorema_commerce_fk_indexes"));
+  }
   await db.exec("set role service_role");
   return db;
 }
@@ -102,6 +106,102 @@ async function client(db: PGlite, id: string) {
   await db.exec("reset role; set role authenticated");
   await db.query("select set_config('request.jwt.claim.sub',$1,false)", [id]);
 }
+
+test("stage 3: drafts, safe publication, immutable versions, authorization and retries", async t => {
+  const db = await setup();
+  const product = randomUUID();
+  const digest = "b".repeat(64);
+  let pdfUpload = "";
+  async function reserve(kind: "PDF" | "COVER", id: string = randomUUID()) {
+    await db.query("select teorema_reserve_upload($1,$2,$3,$4,$5,$6,$7,$8)",
+      [admin, product, id, kind, kind === "PDF" ? "material.pdf" : "capa.png", 1024,
+        kind === "PDF" ? "application/pdf" : "image/png", "Revisão"]);
+    return id;
+  }
+  async function finish(id: string, kind: "PDF" | "COVER") {
+    const bucket = kind === "PDF" ? "teorema-pdfs" : "teorema-covers";
+    const key = `products/${product}/${id}.${kind === "PDF" ? "pdf" : "webp"}`;
+    await db.query("insert into storage.objects(bucket_id,name) values($1,$2)", [bucket, key]);
+    await db.query("select teorema_finish_upload($1,$2,$3,$4)", [admin, id, digest,
+      kind === "COVER" ? `https://example.test/storage/v1/object/public/${bucket}/${key}` : null]);
+  }
+  async function revision() {
+    return (await db.query<{ revision: number }>("select revision from products where id=$1", [product])).rows[0].revision;
+  }
+  try {
+    await db.exec("reset role"); await db.exec(adminProducts); await db.exec("set role service_role");
+    await db.exec(`insert into storage.buckets(id,name,public) values
+      ('teorema-pdfs','teorema-pdfs',false),('teorema-covers','teorema-covers',true),('teorema-uploads','teorema-uploads',false)`);
+
+    await t.test("new products remain drafts and create retries do not duplicate audit", async () => {
+      const values = [admin, product, 0, "Material de teste", "Descrição sintética do material", "39.90"];
+      await db.query("select teorema_save_product($1,$2,$3,$4,$5,$6)", values);
+      await db.query("select teorema_save_product($1,$2,$3,$4,$5,$6)", values);
+      const row = (await db.query<{ is_active: boolean; publication_status: string }>("select is_active,publication_status from products where id=$1", [product])).rows[0];
+      assert.equal(row.is_active, false); assert.equal(row.publication_status, "DRAFT");
+      assert.equal((await db.query<{ count: number }>("select count(*)::int as count from admin_audit_events where entity_id=$1", [product])).rows[0].count, 1);
+      await assert.rejects(db.query("select teorema_set_product_state($1,$2,'PUBLISHED',$3,$4)", [admin, product, await revision(), randomUUID()]), /Validated PDF and cover/);
+      await assert.rejects(db.query("select teorema_save_product($1,$2,1,'Bad product','Synthetic description',2)", [alice, product]), /Administrator required/);
+    });
+
+    await t.test("reserving does not validate; missing final object cannot be published", async () => {
+      pdfUpload = await reserve("PDF");
+      await reserve("PDF", pdfUpload);
+      assert.equal((await db.query<{ count: number }>("select count(*)::int as count from product_files where product_id=$1", [product])).rows[0].count, 1);
+      await assert.rejects(db.query("select teorema_finish_upload($1,$2,$3,null)", [admin, pdfUpload, digest]), /Private final object missing/);
+      await finish(pdfUpload, "PDF");
+      await db.query("select teorema_finish_upload($1,$2,$3,null)", [admin, pdfUpload, digest]);
+      await assert.rejects(db.query("select teorema_reject_upload($1,$2,'Invalid content')", [admin, pdfUpload]), /Validated history/);
+      await assert.rejects(db.query("select teorema_set_product_state($1,$2,'PUBLISHED',$3,$4)", [admin, product, await revision(), randomUUID()]), /Validated PDF and cover/);
+    });
+
+    await t.test("validated cover enables explicit publication and stale revisions fail", async () => {
+      await finish(await reserve("COVER"), "COVER");
+      const oldRevision = await revision();
+      const operation = randomUUID();
+      await db.query("select teorema_set_product_state($1,$2,'PUBLISHED',$3,$4)", [admin, product, oldRevision, operation]);
+      await db.query("select teorema_set_product_state($1,$2,'PUBLISHED',$3,$4)", [admin, product, oldRevision, operation]);
+      assert.equal((await db.query<{ is_active: boolean }>("select is_active from products where id=$1", [product])).rows[0].is_active, true);
+      await assert.rejects(db.query("select teorema_save_product($1,$2,$3,'Changed name','Changed description',12)", [admin, product, oldRevision]), /Product changed/);
+    });
+
+    await t.test("replacement preserves purchased version and stale upload cannot downgrade", async () => {
+      const cartId = await cart(db, alice, [product]);
+      const orderId = await order(db, alice, cartId, randomUUID(), { [product]: 39.90 });
+      await db.query("select teorema_confirm_order($1,$2)", [admin, orderId]);
+      const older = await reserve("PDF"), newer = await reserve("PDF");
+      await finish(newer, "PDF");
+      await assert.rejects(finish(older, "PDF"), /Newer version already current/);
+      const files = (await db.query<{ id: string; is_current: boolean; validation_status: string }>("select id,is_current,validation_status from product_files where product_id=$1 order by version", [product])).rows;
+      assert.equal(files[0].id, pdfUpload); assert.equal(files[0].is_current, false);
+      assert.equal(files[0].validation_status, "VALIDATED"); assert.equal(files[2].is_current, true);
+      assert.equal((await db.query<{ purchased_file_id: string }>("select purchased_file_id from order_items where order_id=$1", [orderId])).rows[0].purchased_file_id, pdfUpload);
+      const resolved = (await db.query<{ data: { file_id: string } }>("select teorema_resolve_pdf($1,$2) as data", [alice, product])).rows[0].data;
+      assert.ok(JSON.stringify(resolved).includes(newer));
+      await db.query("select teorema_reject_upload($1,$2,'Stale upload canceled')", [admin, older]);
+      await assert.rejects(db.query("update product_uploads set state='VALIDATED' where id=$1", [older]), /immutable/);
+    });
+
+    await t.test("unpublishing and archiving preserve access and historical files", async () => {
+      await db.query("select teorema_set_product_state($1,$2,'UNPUBLISHED',$3,$4)", [admin, product, await revision(), randomUUID()]);
+      await db.query("select teorema_resolve_pdf($1,$2)", [alice, product]);
+      await db.query("select teorema_set_product_state($1,$2,'ARCHIVED',$3,$4)", [admin, product, await revision(), randomUUID()]);
+      await db.query("select teorema_resolve_pdf($1,$2)", [alice, product]);
+      await assert.rejects(reserve("PDF"), /Archived product/);
+      await assert.rejects(db.query("delete from product_files where id=$1", [pdfUpload]), /permission denied|cannot be deleted/);
+      await assert.rejects(db.query("delete from products where id=$1", [product]), /permission denied/);
+    });
+
+    await t.test("students cannot read reservations, invoke admin RPCs or write staging", async () => {
+      await client(db, bob);
+      await assert.rejects(db.query("select * from product_uploads"), /permission denied/);
+      await assert.rejects(db.query("select teorema_admin_check($1)", [admin]), /permission denied/);
+      await assert.rejects(db.query("select teorema_save_product($1,$2,0,'Injected','Injected description',1)", [admin, randomUUID()]), /permission denied/);
+      await assert.rejects(db.exec("insert into storage.objects(bucket_id,name) values('teorema-uploads','injected')"), /row-level security/);
+      assert.equal((await db.query("select id from storage.objects where bucket_id='teorema-pdfs'")).rows.length, 0);
+    });
+  } finally { await db.close(); }
+});
 
 test("Auth eligibility works without granting service_role access to auth.users and the helper remains server-only", async () => {
   const db = await setup();

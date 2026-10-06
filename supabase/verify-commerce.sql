@@ -1,4 +1,4 @@
--- READ ONLY. Run ONLY after 20261004235755_teorema_pdf_orders_access.sql in the selected environment.
+-- READ ONLY. Run ONLY after 20261005004458_teorema_pdf_orders_access.sql in the selected environment.
 -- Aggregate output, no CPF, emails, tokens, personal records or private object keys.
 -- Technical checks must be zero. Bucket/admin readiness is separately classified as CONFIGURACAO.
 -- Run as the project SQL Editor/postgres auditor, not the restricted service_role.

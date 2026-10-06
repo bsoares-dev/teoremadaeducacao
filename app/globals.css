@@ -820,7 +820,7 @@ h2 em {
 .dashboard-sidebar nav button.active { border-color: rgba(247, 245, 240, .45); background: rgba(247, 245, 240, .09); }
 .dashboard-sidebar nav span { color: var(--sand); }
 .dashboard-signout { width: 100%; margin-top: auto; border: 1px solid rgba(247, 245, 240, .45); padding: 14px; background: transparent; color: #f7f5f0; cursor: pointer; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.dashboard-content { width: min(1120px, 100%); padding: clamp(36px, 7vw, 92px); }
+.dashboard-content { width: min(1300px, 100%); min-width: 0; padding: clamp(36px, 5vw, 72px); }
 .dashboard-content h2 { font-size: clamp(50px, 7vw, 84px); }
 .dashboard-description { max-width: 530px; margin: 18px 0 40px; color: #5b6870; line-height: 1.65; }
 .dashboard-table-wrap { overflow-x: auto; border-top: 1px solid rgba(15, 40, 64, .22); }

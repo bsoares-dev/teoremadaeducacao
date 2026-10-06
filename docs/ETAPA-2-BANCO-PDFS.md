@@ -2,9 +2,9 @@
 
 ## Estado e escopo
 
-Atualizado em 04/10/2026. Estado: EM VALIDAÇÃO. Modelagem, migração e testes locais entregues; homologação isolada autorizada pelo responsável, ainda pendente de definição do ambiente. Criação de novo projeto não confirmada: responsável solicitou explicar alternativas sem recurso remoto novo. Nenhuma alteração remota, bucket, endpoint ou tela foi realizada nesta etapa. Commit/push da preparação local também autorizados; não representam aplicação da migração nem homologação concluída.
+Atualizado em 04/10/2026 (São Paulo). Estado: CONCLUÍDA para modelagem/estrutura do banco. Após solicitar alternativas sem projeto novo, o responsável autorizou explicitamente a aplicação no Supabase atual com “pode aplicar”. Estrutura e índices aplicados, com verificação de permissões/integração somente leitura; não houve homologação isolada completa. Storage/upload e fluxo comercial integrado ainda serão implementados e homologados nas etapas 3–9. Não foi criado projeto, bucket, conta ou pedido de teste, nem alterada tela nesta aplicação.
 
-Inspeção somente leitura do projeto `urgzsaftoiebsjkgyhsg`: um perfil, nenhum produto/carrinho/item, nenhum bucket e nenhuma tabela `orders`. A conta administrativa canônica existe e está confirmada. Isso descreve a inspeção, não garante que o estado remoto continuará igual.
+Inspeção antes da aplicação no projeto `urgzsaftoiebsjkgyhsg`: um perfil, nenhum produto/carrinho/item/registration, nenhum bucket e nenhuma tabela `orders`. A conta administrativa canônica existe e está confirmada. Após a aplicação, o perfil foi preservado e as novas tabelas comerciais estão vazias, com um UUID administrativo privado autorizado.
 
 Foram recuperadas as três versões do histórico remoto e seus SQLs, sem reaplicá-los:
 
@@ -14,7 +14,7 @@ Foram recuperadas as três versões do histórico remoto e seus SQLs, sem reapli
 
 Os dois arquivos manuais anteriores foram preservados em `supabase/legacy/`, fora da pasta executável de migrações. Eles não são novas migrações e não devem ser aplicados por cima da base atual.
 
-Nova migração local: [20261004235755_teorema_pdf_orders_access.sql](../supabase/migrations/20261004235755_teorema_pdf_orders_access.sql), gerada com `supabase migration new` (CLI 2.119.0). Uma transação, timeout de trava de 5 s e de execução de 120 s. Não é um script de reaplicação manual: executar uma vez, controlado pelo histórico.
+Migração aplicada: [20261005004458_teorema_pdf_orders_access.sql](../supabase/migrations/20261005004458_teorema_pdf_orders_access.sql), originalmente gerada com `supabase migration new` (CLI 2.119.0) como `20261004235755` e renomeada para corresponder à versão registrada pelo conector. Uma transação, timeout de trava de 5 s e execução de 120 s. Não reaplicar manualmente. Migração adicional `20261005004940_teorema_commerce_fk_indexes.sql` acrescenta três índices compostos apontados pelo advisor real, sem excluir os existentes. Versões remotas usam UTC; aplicação ocorreu em 04/10 no horário de São Paulo.
 
 ## Modelo
 
@@ -101,15 +101,15 @@ PGlite não reproduz REST/PostgREST, Storage HTTP, URLs assinadas, Auth real ou 
 
 Advisor remoto conhecido: proteção contra senhas vazadas desativada. Não foi alterado plano, cobrança ou configuração Auth. Resolver/reavaliar conforme disponibilidade do plano antes da publicação; não é corrigido por este SQL.
 
-## Homologação, aplicação e recuperação
+## Homologação adicional, reprodução e recuperação
 
 1. Obter autorização e identificar ambiente isolado/custos. Conferir que os comandos apontam para ele, não para produção. Não executar `db reset`/fixtures contra projeto remoto.
 2. Exportar backup privado de dados e estrutura (incluindo histórico de migrações, grants, políticas, funções e triggers). Guardar fora do Git, com acesso restrito. Banco não é backup dos bytes de Storage: exportar também arquivos quando existirem. Ensaiar restauração isolada. O snapshot estrutural antigo não substitui esse backup.
 3. Conferir a base e o histórico com `supabase migration list`. No projeto atual, as três primeiras já estão aplicadas: não reenviar nem reparar versões à cegas. Em ambiente novo, preparar Auth/Storage do Supabase e reproduzir a base na ordem documentada.
-4. Revisar a nova migração completa. Aplicar somente `20261004235755` por mecanismo de migrações autorizado. Nenhuma substituição do SQL antigo ou exclusão de tabelas é necessária.
+4. Revisar a nova migração completa. Aplicar somente `20261005004458` por mecanismo de migrações autorizado. Nenhuma substituição do SQL antigo ou exclusão de tabelas é necessária.
 5. Provisionar/configurar os dois buckets pela API/Dashboard autorizados. Revisar visibilidade, tamanho e MIME. Não adicionar políticas permissivas de PDF para clientes.
 6. Executar `verify.sql` (base) e `verify-commerce.sql` (nova estrutura) no ambiente escolhido. Usar apenas agregados para compartilhar resultados. Ensaiar clientes/admin sintéticos e API real; testar concorrência, falhas/retries, upload e download nas etapas correspondentes.
-7. Registrar evidências, aprovação da homologação e configuração pendente. Produção continua sem essas mudanças até autorização própria e etapa 10.
+7. Registrar evidências, aprovação da homologação e configuração pendente. A estrutura de banco foi antecipada em produção por autorização explícita nesta etapa; isso não autoriza publicação do fluxo integrado ou contratação de recursos.
 
 Falha antes do commit: a transação desfaz esta migração; se a sessão permanecer abortada, `ROLLBACK` e investigar. Timeout não justifica remover constraints ou grants. Se o histórico remoto indicar aplicada, não reaplicar manualmente.
 
@@ -117,12 +117,23 @@ Depois de aplicada: interromper o fluxo novo, preservar tabelas/arquivos/auditor
 
 ## Próximo marco
 
-Homologação real autorizada fecha a etapa 2. A etapa 3 acrescentará painel/upload e validação real de arquivos; etapas 5–8 ligarão estas funções ao fluxo comercial. Não há venda, pedido pelo WhatsApp ou biblioteca novos funcionando no site nesta entrega.
+A etapa 3 acrescentará bucket privado, painel/upload e validação real de arquivos; etapas 5–8 ligarão estas funções ao fluxo comercial. A etapa 9 verificará o fluxo completo, inclusive concorrência e dois clientes reais autorizados. Não há venda, pedido pelo WhatsApp ou biblioteca novos funcionando no site nesta entrega.
 
 ### Continuação autorizada
 
 O responsável autorizou homologação separada e commit/push. A descoberta pelo conector encontrou apenas `teoremadaeducacao` (produção) e nenhuma branch de desenvolvimento. Há uma organização disponível: `code.commerce.contato@gmail.com's Org`. O responsável escolheu essa organização e o conector informou US$ 0/mês para um projeto no plano Free. Ao solicitar confirmação de criação, o responsável pediu explicação e alternativa sem novo banco remoto; nenhum projeto foi criado. É possível usar stack Supabase local isolada (Docker), sem recurso na organização, ou manter o aceite de modelagem/testes locais separado da homologação integrada. Não afirmar que Auth/PostgREST/Storage reais foram homologados apenas por passar em PGlite. A autorização de homologação não autoriza migração em produção ou contratação paga automática.
 
 Revalidação antes do commit: 24 testes, lint, tipos e build aprovados. Não foram encontradas alterações de código da aplicação nesta preparação. Push pode acionar automações já existentes no repositório; não configurar nova automação de migrações nem deploy manual neste escopo.
+
+### Aplicação autorizada no Supabase atual — 04/10/2026
+
+- Base anterior: 12 verificações sem pendências. Preservado snapshot privado das linhas das cinco tabelas da aplicação, colunas, constraints, índices, políticas, ACLs, funções/triggers relevantes e histórico de migrações.
+- Snapshot: `.data/backups/2026-10-04-pre-pdfs.snapshot.dpapi`, ignorado pelo Git e protegido por DPAPI CurrentUser do Windows. Cinco partes gzip cifradas; roundtrip do arquivo persistido (decifrar, descompactar, concatenar e interpretar JSON) verificado sem expor dados. Requer preservar este perfil Windows. SHA-256: `EE631762EB2CAA7ECD85D081DE6CDFA0A7C0D3E1052B4DC83BD78410C733F3E6`.
+- Este é um snapshot de recuperação das tabelas/definições da aplicação, não dump completo restaurável de toda a plataforma. Não exporta registros/segredos/sessões de Auth nem bytes de Storage. Auth não foi modificado e não existiam buckets/arquivos. Não usar o snapshot como promessa de recuperação integral do projeto; manter backup completo autorizado como requisito operacional antes do fluxo comercial.
+- Migrações remotas `20261005004458` e `20261005004940` aplicadas com sucesso e registradas. Todas as seis tabelas novas têm RLS. Um administrador elegível vinculado por UUID; nenhum pedido/acesso/arquivo/evento criado.
+- Verificação nova: controles 01–12 e 14 zerados; 13 aponta bucket privado não provisionado, configuração prevista para etapa 3. Não relaxar permissões nem publicar PDFs para eliminar esse aviso.
+- `node scripts/check-commerce.mjs` passou contra API real: tabelas acessíveis ao servidor, negadas ao anônimo, `service_role` → PostgREST → helper privado de Auth funcionando e PDF sem autorização bloqueado. Teste somente leitura, sem cadastro/envio de e-mail, pedidos, confirmação ou upload. HEAD não contém corpo de erro; o teste usa GET limitado para conferir o código PostgREST.
+- Advisor: nenhuma FK sem índice após correção. Índices ainda não usados são informativos em tabelas vazias; não removidos. Aviso conhecido de proteção de senhas vazadas permanece, sem upgrade/configuração pagos.
+- A nova aplicação e seus registros locais ainda não receberam novo commit/push neste comando; o commit anterior `c9f9b3e` registrou a preparação. Não reaplicar o arquivo antigo nem usar uma migração local duplicada com versão diferente.
 
 Referências: [funções e privilégios](https://supabase.com/docs/guides/database/functions), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [buckets privados](https://supabase.com/docs/guides/storage/buckets/fundamentals) e [proteção de senhas](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).

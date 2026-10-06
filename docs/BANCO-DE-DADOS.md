@@ -2,7 +2,7 @@
 
 ## Estado da entrega
 
-Etapa 2 de venda de PDFs, em 04/10/2026: nova modelagem/migração testada localmente, ainda NÃO aplicada remotamente. Consulte [ETAPA-2-BANCO-PDFS.md](ETAPA-2-BANCO-PDFS.md). As correções abaixo descrevem a base anterior já aplicada; não confundir os dois marcos.
+Etapa 2 de venda de PDFs, em 04/10/2026 (São Paulo): modelagem testada localmente e migrações `20261005004458`/`20261005004940` aplicadas remotamente após autorização. Consulte [ETAPA-2-BANCO-PDFS.md](ETAPA-2-BANCO-PDFS.md). As correções abaixo descrevem a base anterior; bucket/upload e fluxo integrado ainda não implementados.
 
 Correções aplicadas ao projeto remoto `urgzsaftoiebsjkgyhsg` em 04/10/2026 UTC (03/10 no horário de São Paulo), após inspeção direta pelo conector Supabase.
 As 12 verificações de supabase/verify.sql retornaram zero pendências. O usuário e perfil existentes foram preservados; as demais tabelas estavam vazias.

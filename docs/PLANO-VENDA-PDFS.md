@@ -2,7 +2,7 @@
 
 ## Documento de referência
 
-Versão 3, atualizada em 04/10/2026. Status: etapa 1 CONCLUÍDA e aprovada; etapa 2 EM VALIDAÇÃO (migração/testes locais entregues, homologação Supabase real pendente); etapas 3–10 PENDENTES. Nenhuma funcionalidade nova foi integrada à aplicação ou publicada; a migração da etapa 2 não foi aplicada remotamente.
+Versão 6, atualizada em 05/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapa 3 EM VALIDAÇÃO, com implementação testada e banco/Storage aplicados após autorização; etapas 4–10 PENDENTES. Ativação da variável na Vercel e ensaio real autenticado ainda pendentes: conexão Vercel retornou 403 no escopo do projeto. Não houve homologação isolada completa nem publicação do fluxo comercial.
 Este documento é a referência para comandos como “faça a etapa 4”. Manter a numeração estável; registrar mudanças de escopo e decisões aqui.
 O comando “faça a etapa 1” autorizou sua documentação e seus wireframes locais. Não altera aplicação, banco, Storage, Vercel ou autoriza publicação de recursos.
 
@@ -72,11 +72,11 @@ Aceite: fluxo completo compreensível, decisões registradas e identidade premiu
 
 ## Etapa 2 — Estruturar pedidos, arquivos e permissões no banco
 
-Status: EM VALIDAÇÃO. Dependências: 1 concluída. Autorizada pelo responsável com “pode fazer etapa 2” em 04/10/2026.
+Status: CONCLUÍDA para estrutura do banco. Dependências: 1 concluída. Preparação autorizada com “pode fazer etapa 2”; aplicação no Supabase atual autorizada posteriormente com “pode aplicar”. Sem criação de projeto adicional ou uso de Docker.
 
-Entrega local: [modelagem, contratos, limites e aplicação/recuperação](ETAPA-2-BANCO-PDFS.md), `supabase/migrations/20261004235755_teorema_pdf_orders_access.sql`, `supabase/verify-commerce.sql` e testes de banco. Histórico-base reconciliado com as três versões remotas, preservando os scripts manuais em `supabase/legacy/`.
+Entrega local: [modelagem, contratos, limites e aplicação/recuperação](ETAPA-2-BANCO-PDFS.md), `supabase/migrations/20261005004458_teorema_pdf_orders_access.sql`, `supabase/verify-commerce.sql` e testes de banco. Histórico-base reconciliado com as três versões remotas, preservando os scripts manuais em `supabase/legacy/`.
 
-Evidências: 24 testes automatizados, lint, tipos e build locais; testes com dois clientes sintéticos, mutações indevidas, isolamento, snapshots, retries, grants integrais, revogações, versões e Storage simulado. PGlite é PostgreSQL descartável, não homologação de Auth/PostgREST/Storage HTTP ou concorrência real. Nenhum recurso remoto foi criado/alterado. Homologação separada e commit/push autorizados; falta definir/provisionar o ambiente, confirmar custos e verificar RPCs/Storage reais antes do aceite final da etapa. Não há autorização de migração em produção.
+Evidências: 24 testes automatizados, lint, tipos e build locais; testes com dois clientes sintéticos, mutações indevidas, isolamento, snapshots, retries, grants integrais, revogações, versões e Storage simulado. Migrações `20261005004458` e `20261005004940` aplicadas e verificadas no projeto atual. RLS/permissões/estado administrativo sem pendências; perfil existente preservado. Smoke test de API real somente leitura passou, inclusive helper privado de Auth. Bucket privado ainda não provisionado (etapa 3). Não confundir isso com homologação completa de upload/download, concorrência ou duas sessões reais: essa validação fica nas etapas correspondentes e 9. Nenhuma conta/pedido/arquivo de teste foi criado em produção.
 
 Entregas:
 - Inspecionar novamente o schema real e o histórico de migrações; alinhar arquivos locais com versões remotas antes de acrescentar novas migrações.
@@ -92,7 +92,9 @@ Aceite: dois clientes de teste não acessam dados entre si, não alteram preço/
 
 ## Etapa 3 — Painel administrativo de produtos e upload de PDFs
 
-Status: PENDENTE. Dependências: 1, 2.
+Status: EM VALIDAÇÃO. Dependências: 1, 2. Implementação local autorizada com “pode iniciar a etapa 3” e retomada com pedido para concluir os testes. [Entrega, evidências e ativação pendente](ETAPA-3-PRODUTOS-PDFS.md).
+
+Implementado: rascunho/edição/publicação/despublicação/arquivamento, revisão concorrente, uploads TUS para staging privado, validação no servidor, capas WebP, histórico imutável e limpeza explícita de temporários expirados. 36 testes passaram; lint/tipos/build verificados. Migração `20261005235705` e três buckets aplicados após autorização em 05/10/2026, sem upgrade. Perfil preservado, RLS/RPCs e configuração Storage verificados. Ativação na Vercel impedida por 403 da integração; variável Production ainda pendente. Aceite real de admin/aluno e upload permanece pendente; não tratar como etapa concluída integralmente.
 
 Entregas:
 - Criar/editar título, descrição, preço, capa e arquivo PDF.
@@ -221,7 +223,7 @@ Aceite: fluxo publicado e validado no domínio real, admin consegue operá-lo e 
 | Etapa | Estado | Evidência/observação |
 | --- | --- | --- |
 | 1 | CONCLUÍDA | D01/D02 confirmadas; especificação e nove wireframes verificados localmente e aprovados pelo responsável em 04/10/2026 |
-| 2 | EM VALIDAÇÃO | Migração, contratos e 24 testes locais entregues; homologação Supabase real pendente; produção intacta |
+| 2 | CONCLUÍDA (estrutura) | Migrações e índices aplicados no Supabase após autorização; 24 testes locais e smoke de API real; bucket/fluxo integrado nas etapas 3–9 |
 | 3 | PENDENTE | Sem upload/admin de PDFs |
 | 4 | PENDENTE | Vitrine atual ainda usa CTA direto de WhatsApp |
 | 5 | PENDENTE | Carrinho atual é placeholder |
@@ -250,3 +252,13 @@ Referência: [Supabase Storage — buckets privados e links temporários](https:
 - Migração nova não é um script de reaplicação manual. Homologação isolada, backups e publicação são marcos separados, com autorização própria.
 - A etapa 2 fica EM VALIDAÇÃO até homologação real; as próximas etapas não foram iniciadas.
 - Continuação: responsável autorizou homologação separada e commit/push. Apenas produção está disponível. Organização confirmada; Supabase informou US$ 0/mês, mas criação não confirmada: responsável solicitou explicação/alternativa sem novo banco remoto. Avaliar stack local isolada com Docker; não usar produção como substituto do ambiente de testes. Nenhum projeto novo criado.
+
+### Aplicação no Supabase atual — 04/10/2026
+
+- Responsável autorizou expressamente “pode aplicar” após explicação de que Git push não aplica SQL e de que um ambiente separado/Docker servia para testes. Autorização limitada à estrutura atual, sem iniciar painel/upload ou publicar checkout.
+- Snapshot privado de dados/definições da aplicação preservado em `.data`, cifrado por DPAPI CurrentUser e verificado. Não é backup completo de Auth/Storage; ver limites e recuperação no documento da etapa 2.
+- Migrações `20261005004458_teorema_pdf_orders_access` e `20261005004940_teorema_commerce_fk_indexes` registradas remotamente. Arquivos locais renomeados para coincidir com o histórico; não manter/aplicar versões locais antigas duplicadas.
+- Base anterior: 12 controles zerados. Nova estrutura: controles 01–12 e 14 zerados; 13 registra bucket privado ainda pendente da etapa 3. Seis tabelas novas com RLS; um UUID administrativo elegível. Dados existentes preservados.
+- Teste de leitura na API real aprovado para contratos/grants e resolver privado de Auth/acesso. Não cria contas, pedidos, mensagens, uploads ou liberações em produção. Nenhuma homologação isolada foi executada.
+- Advisor sem FKs sem índice; índices ainda não usados são informativos. Aviso conhecido de proteção contra senhas vazadas permanece, sem contratar upgrade.
+- Etapa 2 concluída para modelagem/estrutura. Próximo comando possível: “faça a etapa 3”. Homologação integrada de vendas/entrega permanece na etapa 9; não antecipar alegações de checkout/download funcionando.

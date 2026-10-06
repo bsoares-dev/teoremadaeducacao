@@ -41,9 +41,9 @@ Referência: [Row Level Security](https://supabase.com/docs/guides/database/post
 - As funções não são expostas por endpoints novos nesta alteração. A tela atual continua com compra assistida por WhatsApp; conectar uma interface de carrinho a essas funções é uma etapa separada.
 - Referência: [Funções e permissões no Supabase](https://supabase.com/docs/guides/database/functions).
 
-## Pedidos e PDFs — preparação local da etapa 2
+## Pedidos e PDFs — estrutura aplicada da etapa 2
 
-A nova migração de pedidos, arquivos, acessos e auditoria está testada localmente, não aplicada no Supabase. Clientes não executam suas RPCs nem gravam decisões. O servidor precisa validar `getUser()`, origem e corpo da requisição antes de usar a chave privada; IDs de cliente/operador nunca vêm do navegador.
+A migração de pedidos, arquivos, acessos e auditoria foi aplicada no Supabase atual em 04/10/2026 após autorização; migração adicional cobre as três FKs compostas com índices. Clientes não executam suas RPCs nem gravam decisões. O servidor precisa validar `getUser()`, origem e corpo da requisição antes de usar a chave privada; IDs de cliente/operador nunca vêm do navegador. O smoke test de leitura passou na API real, sem criar contas/pedidos/arquivos.
 
 O Supabase atual não concede leitura de `auth.users` a `service_role`. Uma única função privada `SECURITY DEFINER`, com proprietário `postgres`, `search_path` vazio, chamada restrita a service role e sem retorno de dados de Auth, verifica elegibilidade. Não expor `teorema_private` na Data API nem conceder leitura ampla de Auth para contornar erros. UUIDs administrativos são fixados na tabela privada; metadados editáveis não concedem acesso.
 

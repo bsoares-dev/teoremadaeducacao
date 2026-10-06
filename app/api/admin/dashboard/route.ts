@@ -1,6 +1,6 @@
 import { adminAccess } from "@/lib/auth";
-import { privateJson, readJson } from "@/lib/http";
-import { pagination, productSchema } from "@/lib/schemas";
+import { privateJson } from "@/lib/http";
+import { pagination } from "@/lib/schemas";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET(request: Request) {
@@ -21,21 +21,6 @@ export async function GET(request: Request) {
   } catch { return privateJson({ error: "Painel temporariamente indisponível." }, 503); }
 }
 
-export async function POST(request: Request) {
-  try {
-    const access = await adminAccess();
-    if (!access.user) return privateJson({ error: "Sessão encerrada." }, 401);
-    if (!access.allowed) return privateJson({ error: "Acesso negado." }, 403);
-    let body;
-    try { body = await readJson(request); }
-    catch { return privateJson({ error: "Requisição inválida." }, 400); }
-    const parsed = productSchema.safeParse(body);
-    if (!parsed.success) return privateJson({ error: parsed.error.issues[0]?.message || "Confira os dados." }, 400);
-    const { name, description, price, imageUrl } = parsed.data;
-    const { data, error } = await getSupabaseAdmin().from("products")
-      .insert({ name, description, price, image_url: imageUrl, is_active: true })
-      .select("id,name,description,price,image_url,created_at").single();
-    if (error) return privateJson({ error: "Não foi possível salvar. Confira a lista antes de tentar novamente." }, 503);
-    return privateJson({ product: data }, 201);
-  } catch { return privateJson({ error: "Painel temporariamente indisponível." }, 503); }
+export async function POST() {
+  return privateJson({ error: "Cadastro antigo desativado. Use a gestão de produtos com validação de PDF." }, 410);
 }
