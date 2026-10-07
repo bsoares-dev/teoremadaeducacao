@@ -5,6 +5,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { cartDatabase } from "./fixtures/cart-database.mjs";
+import { fixtureSelect, fixtureTables } from "./fixtures/rest-select.mjs";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : "playwright");
 const { db, users, ids, service } = await cartDatabase();
@@ -16,6 +17,7 @@ const sessions = users.map(user => {
 });
 let dropResponse = false, droppedOperation = null;
 let dropOrderResponse = false;
+let dropDecisionResponse = false;
 const fixture = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Access-Control-Allow-Headers", "authorization,apikey,content-type,x-client-info,x-supabase-api-version");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -51,23 +53,23 @@ const fixture = createServer(async (req, res) => {
         if (dropOrderResponse) { res.writeHead(503); res.end(JSON.stringify({ code: "08006", message: "Lost order response" })); return; }
       } else if (url.pathname.endsWith("/teorema_admin_check")) {
         value = await service(async tx => (await tx.query("select teorema_admin_check($1) as value", [body.p_actor_id])).rows[0].value);
+      } else if (url.pathname.endsWith("/teorema_confirm_order")) {
+        value = await service(async tx => (await tx.query("select teorema_confirm_order($1,$2) as value", [body.p_actor_id, body.p_order_id])).rows[0].value);
+        if (dropDecisionResponse) { res.writeHead(503); res.end(JSON.stringify({ code: "08006", message: "Lost confirmation response" })); return; }
+      } else if (url.pathname.endsWith("/teorema_cancel_order")) {
+        value = await service(async tx => (await tx.query("select teorema_cancel_order($1,$2,$3) as value", [body.p_actor_id, body.p_order_id, body.p_reason])).rows[0].value);
+      } else if (url.pathname.endsWith("/teorema_set_access_state")) {
+        value = await service(async tx => (await tx.query("select teorema_set_access_state($1,$2,$3,$4,$5) as value", [body.p_actor_id, body.p_grant_id, body.p_state, body.p_reason, body.p_operation_id])).rows[0].value);
       } else throw new Error("Unknown fixture RPC");
       res.end(JSON.stringify(value)); return;
     }
-    if (["/rest/v1/products", "/rest/v1/access_grants", "/rest/v1/carts", "/rest/v1/cart_items", "/rest/v1/orders", "/rest/v1/order_items"].includes(url.pathname)) {
+    if (["/rest/v1/products", "/rest/v1/carts", "/rest/v1/cart_items", ...fixtureTables.map(t => "/rest/v1/" + t)].includes(url.pathname)) {
       const rows = await db.transaction(async tx => {
         await tx.exec(`set local role ${token === serviceKey ? "service_role" : session ? "authenticated" : "anon"}`);
         if (session) await tx.query("select set_config('request.jwt.claim.sub',$1,true)", [session.user.id]);
-        if (url.pathname.endsWith("/orders")) {
-          let rows = (await tx.query("select id,code,status,total_amount,created_at,user_id from orders order by created_at desc,id")).rows;
-          for (const field of ["id", "code", "user_id"]) { const filter = url.searchParams.get(field); if (filter) rows = rows.filter(row => row[field] === filter.slice(3)); }
-          res.setHeader("Content-Range", `0-${Math.max(0, rows.length - 1)}/${rows.length}`);
-          return req.headers.accept?.includes("vnd.pgrst.object") ? rows[0] || null : rows;
-        }
-        if (url.pathname.endsWith("/order_items")) return (await tx.query("select id,product_id,product_name,unit_price from order_items where order_id=$1 order by product_id", [url.searchParams.get("order_id").slice(3)])).rows;
+        if (fixtureTables.includes(url.pathname.split("/").at(-1))) return fixtureSelect(tx, url, res, req.headers.accept?.includes("vnd.pgrst.object"));
         if (url.pathname.endsWith("/carts")) return (await tx.query("select id from carts where status='OPEN' order by created_at limit 1")).rows[0] || null;
         if (url.pathname.endsWith("/cart_items")) return (await tx.query("select product_id from cart_items where cart_id=$1 limit 50", [url.searchParams.get("cart_id").slice(3)])).rows;
-        if (url.pathname.endsWith("access_grants")) return (await tx.query("select product_id from access_grants where state='ATIVO'")).rows;
         assert.equal(url.searchParams.has("publication_status"), false, "Column must not require extra client grants");
         let data = (await tx.query("select id,name,description,price,image_url from products where is_active=true order by id")).rows;
         const filtered = url.searchParams.get("id"); if (filtered) data = data.filter(item => filtered.includes(item.id));
@@ -205,10 +207,106 @@ try {
   assert.equal((await context.request.get(origin + "/api/admin/orders")).status(), 403);
   await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("bob@example.test"); await ready();
   const denied = await page.goto(origin + "/pedidos/" + saved.id); assert.equal(denied.status(), 404);
+  assert.equal((await context.request.post(origin + "/api/admin/orders/" + saved.id, { headers: { Origin: origin }, data: { action: "confirm", paymentVerified: true } })).status(), 403);
   await page.goto(origin + "/pedidos"); await page.getByText("Nenhum pedido nesta página.", { exact: true }).waitFor();
   await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("bernardozsoares11@gmail.com"); await ready();
   const adminOrders = await context.request.get(origin + "/api/admin/orders?code=" + saved.code);
   assert.equal(adminOrders.status(), 200); assert.equal((await adminOrders.json()).items[0].code, saved.code);
+  // Another customer's two-PDF order proves the all-items/account boundary.
+  const bobCart = await service(async tx => (await tx.query("select teorema_sync_cart($1,$2,null,0,$3,'{}') as value", [users[2].id, crypto.randomUUID(), [ids[0], ids[2]]])).rows[0].value.cart);
+  const bobOrder = await service(async tx => (await tx.query("select teorema_create_order($1,$2,$3,$4,$5) as value", [users[2].id, bobCart.id, crypto.randomUUID(), 82.24, JSON.stringify({ [ids[0]]: 42.34, [ids[2]]: 39.90 })])).rows[0].value);
+  await page.goto(origin + "/admin");
+  await page.getByRole("button", { name: "Pedidos e acessos", exact: true }).click();
+  await page.getByRole("button", { name: "Ver pedido", exact: true }).first().waitFor();
+  await page.getByLabel("Código do pedido", { exact: true }).fill(saved.code);
+  await page.getByRole("button", { name: "Buscar", exact: true }).click();
+  await page.waitForFunction(() => document.querySelectorAll('.commerce-list article').length === 1);
+  await page.getByRole("button", { name: "Ver pedido", exact: true }).click();
+  await page.getByRole("button", { name: "Confirmar compra e liberar materiais", exact: true }).click();
+  const confirmDialog = page.getByRole("dialog");
+  assert.equal(await confirmDialog.getByRole("button", { name: "Confirmar compra e liberar materiais", exact: true }).isDisabled(), true);
+  await confirmDialog.getByRole("checkbox").check();
+  dropDecisionResponse = true;
+  const failedConfirmation = page.waitForResponse(response => response.url() === origin + "/api/admin/orders/" + saved.id && response.request().method() === "POST" && response.status() === 503);
+  await confirmDialog.getByRole("button", { name: "Confirmar compra e liberar materiais", exact: true }).click();
+  await failedConfirmation;
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('button')).some(button => button.textContent === 'Recuperar tentativa' && !button.disabled));
+  assert.equal((await db.query("select count(*)::int as n from access_grants where user_id=$1", [users[1].id])).rows[0].n, 1);
+  assert.ok(await page.evaluate(() => Object.keys(sessionStorage).some(k => k.startsWith("teorema:admin-decision:"))));
+  dropDecisionResponse = false;
+  await page.reload(); await page.getByRole("button", { name: "Pedidos e acessos", exact: true }).click();
+  await page.getByRole("button", { name: "Recuperar tentativa", exact: true }).click();
+  await page.getByRole("button", { name: "Revogar acesso", exact: true }).waitFor();
+  assert.equal((await db.query("select count(*)::int as n from admin_audit_events where entity_id=$1 and action='ORDER_CONFIRMED'", [saved.id])).rows[0].n, 1);
+  // Two independent API requests serialize through the real transaction RPC.
+  const confirmations = await Promise.all([1, 2].map(() => context.request.post(origin + "/api/admin/orders/" + bobOrder, { headers: { Origin: origin }, data: { action: "confirm", paymentVerified: true } })));
+  for (const response of confirmations) assert.equal(response.status(), 200);
+  assert.equal((await db.query("select count(*)::int as n from access_grants where user_id=$1", [users[2].id])).rows[0].n, 2);
+  assert.equal((await db.query("select count(*)::int as n from admin_audit_events where entity_id=$1 and action='ORDER_CONFIRMED'", [bobOrder])).rows[0].n, 1);
+  await page.getByRole("button", { name: "Revogar acesso", exact: true }).click();
+  await page.getByRole("dialog").getByLabel("Motivo", { exact: true }).fill("Revisão administrativa sintética");
+  await page.getByRole("dialog").getByRole("button", { name: "Revogar acesso", exact: true }).click();
+  await page.getByRole("button", { name: "Reliberar acesso", exact: true }).waitFor();
+  const revoked = (await db.query("select id from access_grants where user_id=$1 and state='REVOGADO'", [users[1].id])).rows[0].id;
+  await assert.rejects(service(tx => tx.query("select teorema_resolve_pdf($1,$2)", [users[1].id, ids[0]])), /not authorized/);
+  await page.getByRole("button", { name: "Reliberar acesso", exact: true }).click();
+  await page.getByRole("dialog").getByLabel("Motivo", { exact: true }).fill("Conferência concluída em teste");
+  await page.getByRole("dialog").getByRole("button", { name: "Reliberar acesso", exact: true }).click();
+  await page.getByRole("button", { name: "Revogar acesso", exact: true }).waitFor();
+  assert.equal((await db.query("select state from access_grants where id=$1", [revoked])).rows[0].state, "ATIVO");
+  // Withdraw from catalog without changing buyers' authorizations.
+  await service(tx => tx.query("update products set is_active=false,publication_status='UNPUBLISHED' where id=$1", [ids[0]]));
+  await service(tx => tx.query("select teorema_resolve_pdf($1,$2)", [users[1].id, ids[0]]));
+  await mkdir(".data/admin-commerce-check", { recursive: true });
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Admin overflow ${width}`);
+    if (width === 390 || width === 1440) await page.screenshot({ path: `.data/admin-commerce-check/${width}.png`, fullPage: true });
+  }
+  await page.getByRole("button", { name: "Acessos", exact: true }).click();
+  await page.waitForFunction(() => document.querySelectorAll('.commerce-list article').length === 3);
+  await page.getByLabel("E-mail do cliente", { exact: true }).fill("bob@example.test");
+  await page.getByRole("button", { name: "Buscar", exact: true }).click();
+  await page.waitForFunction(() => document.querySelectorAll('.commerce-list article').length === 2);
+  assert.match(await page.locator(".commerce-list").innerText(), /bob@example.test/);
+  // Cancellation affects a pending order only, leaves no grants and stores reason.
+  const cancelCart = await service(async tx => (await tx.query("select teorema_sync_cart($1,$2,null,0,$3,'{}') as value", [users[0].id, crypto.randomUUID(), [ids[2]]])).rows[0].value.cart);
+  const cancelOrder = await service(async tx => (await tx.query("select teorema_create_order($1,$2,$3,39.90,$4) as value", [users[0].id, cancelCart.id, crypto.randomUUID(), JSON.stringify({ [ids[2]]: 39.90 })])).rows[0].value);
+  const cancelCode = (await service(tx => tx.query("select code from orders where id=$1", [cancelOrder]))).rows[0].code;
+  await page.getByRole("button", { name: "Pedidos", exact: true }).click();
+  await page.getByRole("button", { name: "Limpar filtros", exact: true }).click();
+  await page.getByLabel("Código do pedido", { exact: true }).fill(cancelCode);
+  await page.getByRole("button", { name: "Buscar", exact: true }).click();
+  await page.waitForFunction(code => document.querySelectorAll('.commerce-list article').length === 1 && document.querySelector('.commerce-list')?.textContent.includes(code), cancelCode);
+  await page.getByRole("button", { name: "Ver pedido", exact: true }).click();
+  await page.getByRole("button", { name: "Cancelar pedido", exact: true }).click();
+  assert.equal(await page.getByRole("dialog").locator("form").evaluate(form => form.checkValidity()), false);
+  await page.getByRole("dialog").getByLabel("Motivo", { exact: true }).fill("Solicitação sintética do cliente");
+  const cancelResponse = page.waitForResponse(response => response.url() === origin + "/api/admin/orders/" + cancelOrder && response.request().method() === "POST");
+  await page.getByRole("dialog").getByRole("button", { name: "Cancelar pedido", exact: true }).click();
+  const canceled = await cancelResponse;
+  assert.equal(canceled.status(), 200); assert.equal((await canceled.json()).order.status, "CANCELADO");
+  assert.equal((await db.query("select count(*)::int as n from access_grants where user_id=$1", [users[0].id])).rows[0].n, 0);
+  assert.equal((await context.request.post(origin + "/api/admin/orders/" + cancelOrder, { headers: { Origin: "https://other.test" }, data: { action: "cancel", reason: "Teste de origem" } })).status(), 400);
+  assert.equal((await context.request.post(origin + "/api/admin/orders/" + cancelOrder, { headers: { Origin: origin }, data: { action: "confirm", paymentVerified: true, actorId: users[0].id } })).status(), 400);
+  assert.equal((await context.request.post(origin + "/api/admin/orders/" + bobOrder, { headers: { Origin: origin }, data: { action: "access", grantId: revoked, state: "REVOGADO", reason: "Origem errada em teste", operationId: crypto.randomUUID() } })).status(), 404);
+  assert.equal((await context.request.get(origin + "/api/admin/orders?status=PAID")).status(), 400);
+  const confirmedFilter = await context.request.get(origin + "/api/admin/orders?status=CONFIRMADO&email=bob%40example.test");
+  assert.equal(confirmedFilter.status(), 200); assert.equal((await confirmedFilter.json()).total, 1);
+  assert.equal((await (await context.request.get(origin + "/api/admin/orders?email=missing%40example.test")).json()).total, 0);
+  assert.equal((await (await context.request.get(origin + "/api/admin/orders?page=2")).json()).items.length, 0);
+  assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex, nofollow');
+  // A corrupted recovery journal must not permit a fresh, ambiguous decision.
+  await page.evaluate(actor => sessionStorage.setItem('teorema:admin-decision:v1:' + actor, '{broken'), users[0].id);
+  await page.reload(); await page.getByRole("button", { name: "Pedidos e acessos", exact: true }).click();
+  await page.getByText(/Tentativa pendente ilegível/).waitFor();
+  await page.getByLabel("Código do pedido", { exact: true }).fill(saved.code);
+  await page.getByRole("button", { name: "Buscar", exact: true }).click();
+  await page.waitForFunction(code => document.querySelectorAll('.commerce-list article').length === 1 && document.querySelector('.commerce-list')?.textContent.includes(code), saved.code);
+  await page.getByRole("button", { name: "Ver pedido", exact: true }).click();
+  await page.getByRole("button", { name: "Revogar acesso", exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Revogar acesso", exact: true }).isDisabled(), true);
+  console.log("PASS stage 7: verified admin, payment checkbox, lost confirmation recovery after reload, one audit/no duplicate grants, all PDFs for correct customer, revoke/restore, unpublished access preserved, customer filter, cancel without grants, forged actor/origin/foreign grant rejected, responsive dashboard.");
   assert.deepEqual(errors, []);
   console.log("PASS stage 6: changed price requires review; lost committed response recovered as the same order; blocked popup fallback; persisted WhatsApp code/price; no grants; customer isolation; verified admin listing; responsive order pages.");
   console.log("PASS: visitor -> login/register links -> atomic merge -> reload -> lost response/retry -> price update -> unavailable/removal -> logout/login -> second-user isolation -> expired session -> confirmation callback. Responsive at 320/390/768/1440. No browser runtime errors.");
@@ -218,8 +316,14 @@ finally {
   await browser?.close();
   // Next starts a worker process. Stop only this fixture's process tree before
   // another Next command can read or regenerate the same build directory.
+  let cleanupError;
   if (process.platform === "win32" && child.exitCode === null) {
-    spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+    const termination = spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, encoding: "utf8" });
+    if (termination.status !== 0) {
+      cleanupError = new Error(`Unable to stop fixture Next PID ${child.pid}; stop that process tree before building. ${termination.stderr || ''}`);
+      child.stdout?.destroy(); child.stderr?.destroy(); child.unref();
+    }
   } else child.kill();
-  fixture.close(); await db.close();
+  fixture.closeAllConnections(); fixture.close(); await db.close();
+  if (cleanupError) throw cleanupError;
 }

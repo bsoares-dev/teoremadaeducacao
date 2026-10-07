@@ -2,7 +2,7 @@
 
 ## Documento de referência
 
-Versão 10, atualizada em 07/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapa 3 EM VALIDAÇÃO, com gravação de rascunho demonstrada pelo responsável em produção; etapas 4–6 implementadas em prévia local, EM VALIDAÇÃO integrada; etapas 7–10 PENDENTES. O responsável adiou o ensaio real de upload/publicação da etapa 3 e autorizou iniciar a etapa 6. Migração de carrinho aplicada e verificada no Supabase; pedidos reutilizam a estrutura e RPC da etapa 2, sem nova migração. Commit/push autorizados como rotina ao concluir etapas. A integração Vercel retornou 403 na última consulta; não houve ativação do fluxo comercial.
+Versão 11, atualizada em 07/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapa 3 EM VALIDAÇÃO, com gravação de rascunho demonstrada pelo responsável em produção; etapas 4–7 implementadas em prévia local, EM VALIDAÇÃO integrada; etapas 8–10 PENDENTES. O responsável adiou o ensaio real de upload/publicação da etapa 3 e autorizou iniciar a etapa 7. Migração de carrinho aplicada e verificada no Supabase; pedidos e gestão de acessos reutilizam a estrutura e RPCs da etapa 2, sem nova migração. Commit/push autorizados como rotina ao concluir etapas. A integração Vercel retornou 403 na última consulta; não houve ativação do fluxo comercial.
 Este documento é a referência para comandos como “faça a etapa 4”. Manter a numeração estável; registrar mudanças de escopo e decisões aqui.
 O comando “faça a etapa 1” autorizou sua documentação e seus wireframes locais. Não altera aplicação, banco, Storage, Vercel ou autoriza publicação de recursos.
 
@@ -151,7 +151,7 @@ Aceite: pedido aparece no banco e no contrato de listagem do admin mesmo se What
 
 ## Etapa 7 — Admin: confirmar compras e controlar acessos
 
-Status: PENDENTE. Dependências: 2, 3, 6.
+Status: EM VALIDAÇÃO integrada; implementação em prévia entregue. Dependências: 2, 3, 6; homologação real de upload/publicação da 3 continua adiada pelo responsável. [Entrega, proteção e verificações](ETAPA-7-ADMIN-PEDIDOS-ACESSOS.md). Autorizada com “inicie a etapa 7” em 07/10/2026. Reutiliza as RPCs administrativas da etapa 2, já aplicadas e verificadas no Supabase; não requer migração adicional.
 
 Entregas:
 - Listar/buscar pedidos por código, cliente, data e status, com paginação e detalhes dos itens/valores.
@@ -228,12 +228,20 @@ Aceite: fluxo publicado e validado no domínio real, admin consegue operá-lo e 
 | 4 | EM VALIDAÇÃO integrada | Catálogo + seleção + contador do carrinho; filtro público corrigido sem ampliar grants; produção bloqueada até pedido/WhatsApp e aceite |
 | 5 | EM VALIDAÇÃO integrada | Carrinho por conta, preços, revisão e retries verificados localmente; migração aplicada/verificada; ensaio integrado real pendente |
 | 6 | EM VALIDAÇÃO integrada | Revisão, pedido persistido, recuperação, WhatsApp e histórico testados localmente; RPC remota existente reutilizada |
-| 7 | PENDENTE | Sem liberação administrativa por pedido |
+| 7 | EM VALIDAÇÃO integrada | Pedidos, confirmação integral, cancelamento, revogação/reliberação e auditoria testados localmente; RPCs remotas existentes reutilizadas |
 | 8 | PENDENTE | Sem biblioteca privada |
 | 9 | PENDENTE | Aguardando fluxo integrado |
 | 10 | PENDENTE | Nenhuma publicação deste escopo autorizada |
 
 Referência: [Supabase Storage — buckets privados e links temporários](https://supabase.com/docs/guides/storage/buckets/fundamentals).
+
+### Revisão de 07/10/2026 — etapa 7
+
+- Painel em prévia: filtros e paginação, pedido salvo e conferência explícita de pagamento, confirmação com todos os PDFs em uma transação, cancelamento pendente e gestão de acessos com motivo/histórico.
+- Sessão verificada, UUID administrativo privado e ator exclusivamente do servidor; vínculos de pedido/cliente conferidos. Resposta ambígua mantém tentativa original; diário ilegível bloqueia novas decisões.
+- 58 testes automatizados e ensaio local navegador → API → SQL aprovados; recuperação após commit, confirmação repetida, múltiplos materiais, revogação/reliberação, despublicação, filtros, cancelamento e casos adversariais. Quatro larguras verificadas; não substitui concorrência entre conexões nem homologação real.
+- Histórico/permissões das RPCs conferidos no Supabase; não há nova migração a aplicar. Zero pedidos, autorizações e eventos comerciais em produção, preservados.
+- Próximo desenvolvimento: etapa 8, por comando do responsável. Produção permanece restrita; biblioteca/download não foram antecipados.
 
 ### Revisão de 07/10/2026 — etapa 6
 
