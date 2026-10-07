@@ -20,10 +20,11 @@ Next.js + TypeScript + Supabase Auth/Postgres. O estilo usa CSS do projeto (não
 - /cadastro: valida CPF/telefone/senha na interface e API. Usa Supabase Auth.
 - /auth/callback e /auth/confirm: confirmação e sessão.
 - /login: vai ao perfil (ou admin autorizado); aceita apenas destinos internos permitidos.
-- /perfil, /admin, /carrinho: autenticação validada no servidor.
+- /perfil, /admin, /carrinho, /pedidos: autenticação validada no servidor.
 - /admin: listagem de usuários e nova gestão de produtos/PDFs preparada localmente. Ativação depende da migração, buckets e variável servidor; ver etapa 3. Cadastro antigo que publicava sem PDF desativado.
 - /materiais: produtos do banco, consultas paginadas, compra assistida via WhatsApp.
-- /carrinho: carrinho persistido por conta em prévia controlada; produção mantém o estado vazio protegido. Pedido/WhatsApp e liberação de PDFs ainda não integrados.
+- /carrinho: carrinho persistido por conta e revisão do pedido em prévia controlada; produção mantém o estado vazio protegido.
+- /pedidos e /pedidos/[id]: histórico e resumo persistido, com retomada do atendimento pelo WhatsApp. Liberação de PDFs será integrada nas próximas etapas.
 
 ## Banco / publicação
 Leia [docs/SECURITY.md](docs/SECURITY.md) antes de publicar.
@@ -40,7 +41,9 @@ Migrações `20261005004458_teorema_pdf_orders_access.sql`, `20261005004940_teor
 
 [Etapa 4](docs/ETAPA-4-CATALOGO-SELECAO.md): vitrine publicada, capas otimizadas e seleção de PDFs implementadas em prévia. `TEOREMA_CATALOG_SELECTION_ENABLED=true` habilita a seleção somente em desenvolvimento local ou Vercel Preview, nunca Production. `node scripts/check-catalog-browser.mjs` verifica a interface com fixtures locais (requer Playwright e Edge; `PLAYWRIGHT_MODULE` permite usar uma instalação existente).
 
-[Etapa 5](docs/ETAPA-5-CARRINHO.md): carrinho por conta, mesclagem após autenticação, preços do servidor e recuperação idempotente. Migração `20261006155743_teorema_cart_sync.sql` aplicada e verificada no Supabase em 06/10/2026. Requer `TEOREMA_CART_ENABLED=true`, além da flag da etapa 4, somente em desenvolvimento/Preview. `node scripts/check-cart-browser.mjs` verifica navegador → API → SQL real em PGlite isolado, com Auth/REST simulados. Não há checkout ou biblioteca/download integrados.
+[Etapa 5](docs/ETAPA-5-CARRINHO.md): carrinho por conta, mesclagem após autenticação, preços do servidor e recuperação idempotente. Migração `20261006155743_teorema_cart_sync.sql` aplicada e verificada no Supabase em 06/10/2026. Requer `TEOREMA_CART_ENABLED=true`, além da flag da etapa 4, somente em desenvolvimento/Preview. `node scripts/check-cart-browser.mjs` verifica navegador → API → SQL real em PGlite isolado, com Auth/REST simulados.
+
+[Etapa 6](docs/ETAPA-6-PEDIDOS-WHATSAPP.md): revisão explícita, pedido transacional, recuperação após falha e mensagem baseada nos títulos/preços registrados. Usa a RPC da etapa 2 já aplicada; não há nova migração. Histórico privado e contrato de listagem administrativa disponíveis em prévia. Homologação real, confirmação administrativa e biblioteca/download permanecem nas próximas etapas.
 
 ## Testes de banco
 Os testes criam um PostgreSQL em memória (PGlite) com fixtures sintéticas de auth.users.

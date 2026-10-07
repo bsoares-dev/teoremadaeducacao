@@ -2,7 +2,7 @@
 
 ## Documento de referência
 
-Versão 9, atualizada em 06/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapa 3 EM VALIDAÇÃO, com gravação de rascunho demonstrada pelo responsável em produção; etapas 4 e 5 implementadas em prévia local, EM VALIDAÇÃO integrada; etapas 6–10 PENDENTES. O responsável adiou o ensaio real de upload/publicação da etapa 3 e autorizou iniciar a etapa 5. Migração de carrinho aplicada e verificada no Supabase; commit/push autorizados como rotina ao concluir etapas. A integração Vercel retornou 403 na última consulta; não houve ativação do fluxo comercial.
+Versão 10, atualizada em 07/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapa 3 EM VALIDAÇÃO, com gravação de rascunho demonstrada pelo responsável em produção; etapas 4–6 implementadas em prévia local, EM VALIDAÇÃO integrada; etapas 7–10 PENDENTES. O responsável adiou o ensaio real de upload/publicação da etapa 3 e autorizou iniciar a etapa 6. Migração de carrinho aplicada e verificada no Supabase; pedidos reutilizam a estrutura e RPC da etapa 2, sem nova migração. Commit/push autorizados como rotina ao concluir etapas. A integração Vercel retornou 403 na última consulta; não houve ativação do fluxo comercial.
 Este documento é a referência para comandos como “faça a etapa 4”. Manter a numeração estável; registrar mudanças de escopo e decisões aqui.
 O comando “faça a etapa 1” autorizou sua documentação e seus wireframes locais. Não altera aplicação, banco, Storage, Vercel ou autoriza publicação de recursos.
 
@@ -136,7 +136,7 @@ Aceite: carrinho resiste a refresh/logout/login conforme o contrato, e totais s�
 
 ## Etapa 6 — Registrar pedido e abrir WhatsApp
 
-Status: PENDENTE. Dependências: 2, 5.
+Status: EM VALIDAÇÃO integrada; implementação em prévia entregue. Dependências: 2, 5. [Contrato, recuperação e verificações](ETAPA-6-PEDIDOS-WHATSAPP.md). Autorizada com “inicie a etapa 6” em 07/10/2026. Reutiliza a RPC transacional existente e já aplicada no Supabase; não requer migração adicional. Confirmação de compra e liberação administrativa continuam na etapa 7.
 
 Entregas:
 - Botão “Registrar pedido e falar no WhatsApp”.
@@ -227,13 +227,21 @@ Aceite: fluxo publicado e validado no domínio real, admin consegue operá-lo e 
 | 3 | EM VALIDAÇÃO | Banco/Storage aplicados; responsável demonstrou rascunho salvo em produção; upload/capa/publicação reais adiados |
 | 4 | EM VALIDAÇÃO integrada | Catálogo + seleção + contador do carrinho; filtro público corrigido sem ampliar grants; produção bloqueada até pedido/WhatsApp e aceite |
 | 5 | EM VALIDAÇÃO integrada | Carrinho por conta, preços, revisão e retries verificados localmente; migração aplicada/verificada; ensaio integrado real pendente |
-| 6 | PENDENTE | Sem pedido persistido integrado ao WhatsApp |
+| 6 | EM VALIDAÇÃO integrada | Revisão, pedido persistido, recuperação, WhatsApp e histórico testados localmente; RPC remota existente reutilizada |
 | 7 | PENDENTE | Sem liberação administrativa por pedido |
 | 8 | PENDENTE | Sem biblioteca privada |
 | 9 | PENDENTE | Aguardando fluxo integrado |
 | 10 | PENDENTE | Nenhuma publicação deste escopo autorizada |
 
 Referência: [Supabase Storage — buckets privados e links temporários](https://supabase.com/docs/guides/storage/buckets/fundamentals).
+
+### Revisão de 07/10/2026 — etapa 6
+
+- Implementação autorizada com “inicie a etapa 6”, retomada com “continue de onde parou”. Revisão visual e registro transacional antes da abertura do WhatsApp, com snapshots e recuperação da mesma tentativa.
+- Rotas privadas de histórico/detalhes e contrato de listagem administrativa. Pedido alheio é negado; registrar mantém AGUARDANDO_CONFIRMACAO e não cria acesso aos PDFs.
+- 56 testes automatizados e ensaio local navegador → API → SQL aprovados, incluindo preço alterado, resposta perdida após commit, popup bloqueado, isolamento e administrador. Quatro larguras verificadas; homologação real permanece pendente.
+- Estrutura, RPC e permissões existentes verificadas no Supabase: não há nova migração para aplicar. Nenhum pedido real, mensagem, pagamento ou liberação executado durante os testes.
+- Produção mantém as flags restritas. Próximo desenvolvimento: etapa 7, por comando do responsável.
 
 ### Revisão de 05/10/2026 — etapa 4
 

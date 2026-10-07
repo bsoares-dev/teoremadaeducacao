@@ -8,6 +8,7 @@ import { ShoppingCart, Trash2, BookOpen } from "lucide-react";
 import { LogoutButton } from "@/app/components/session-controls";
 import { SELECTION_KEY, parseSelection, serializeSelection } from "@/lib/catalog-selection";
 import { cartMoney, cartSnapshot, cartResult, cartPendingKey, parsePending, remainingSelection, type CartMutation, type CartSnapshot, type CartResult } from "@/lib/cart-contract";
+import { checkoutInput, orderPendingKey, parseOrderPending, orderSnapshot, orderWhatsApp, type OrderInput } from "@/lib/order-contract";
 
 class CartError extends Error { constructor(message: string, public status = 0) { super(message); } }
 async function request(body?: CartMutation) {
@@ -27,14 +28,69 @@ export default function Cart({ userId }: { userId: string }) {
   const [message, setMessage] = useState("");
   const [rejected, setRejected] = useState<CartResult["rejected"]>([]);
   const [hasPending, setHasPending] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState(false);
+  const [review, setReview] = useState<CartSnapshot | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
   const working = useRef(false), active = useRef(false);
   const journal = cartPendingKey(userId);
+  const orderJournal = orderPendingKey(userId);
+
+  const submitOrder = useCallback(async (operation: OrderInput, popup?: Window | null) => {
+    setPendingOrder(true);
+    try {
+      const response = await fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(operation), signal: AbortSignal.timeout(20000), cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 409 && data.reviewRequired) {
+          sessionStorage.removeItem(orderJournal); setPendingOrder(false); setCart(null);
+        }
+        throw new CartError(data.error || "Não foi possível recuperar seu pedido.", response.status);
+      }
+      const order = orderSnapshot.parse(data.order);
+      // Losing the acknowledgement is safe: retry resolves the same saved order.
+      try { sessionStorage.removeItem(orderJournal); } catch { /* Do not hide a committed order. */ }
+      try {
+        if (popup && !popup.closed && order.status === "AGUARDANDO_CONFIRMACAO") popup.location.replace(orderWhatsApp(order).url);
+        else popup?.close();
+      } catch { /* The saved order page provides the WhatsApp fallback. */ }
+      router.replace(`/pedidos/${order.id}`); router.refresh();
+    } catch (cause) {
+      popup?.close();
+      if (cause instanceof CartError && cause.status === 401) { router.replace("/login?next=/carrinho"); router.refresh(); }
+      throw cause;
+    }
+  }, [orderJournal, router]);
+
+  useEffect(() => { if (review) dialog.current?.showModal(); else dialog.current?.close(); }, [review]);
+
+  async function confirmOrder() {
+    if (working.current || !review) return;
+    working.current = true; setBusy(true); setError("");
+    let popup: Window | null = null;
+    try {
+      const operation = parseOrderPending(sessionStorage.getItem(orderJournal)) || checkoutInput(review, crypto.randomUUID());
+      sessionStorage.setItem(orderJournal, JSON.stringify(operation));
+      // Open synchronously with the click; blocked popups fall back to the order page.
+      try {
+        popup = window.open("about:blank", "_blank");
+        if (popup) popup.opener = null;
+      } catch { popup = null; }
+      await submitOrder(operation, popup);
+    } catch (cause) {
+      setError(cause instanceof CartError ? cause.message : "Não foi possível confirmar o resultado. Sua tentativa foi preservada; use Tentar novamente.");
+    } finally { setReview(null); working.current = false; setBusy(false); }
+  }
 
   const run = useCallback(async (removeId?: string, merge = true) => {
     if (working.current) return;
     working.current = true; setBusy(true); setError("");
     let mutating = false;
     try {
+      // Resolve an ambiguous checkout BEFORE merging visitor IDs into a new cart.
+      const checkout = parseOrderPending(sessionStorage.getItem(orderJournal));
+      if (checkout) { await submitOrder(checkout); return; }
+      setPendingOrder(false);
       const current = cartSnapshot.parse((await request()).cart);
       if (!active.current) return;
       setCart(current);
@@ -66,7 +122,7 @@ export default function Cart({ userId }: { userId: string }) {
       }
       setError(cause instanceof CartError ? cause.message : "Não foi possível concluir. Sua seleção foi preservada. Permita o armazenamento no navegador e tente novamente.");
     } finally { working.current = false; if (active.current) setBusy(false); }
-  }, [journal, router]);
+  }, [journal, orderJournal, submitOrder, router]);
 
   useEffect(() => {
     active.current = true;
@@ -102,13 +158,21 @@ export default function Cart({ userId }: { userId: string }) {
         <div><p className="eyebrow blue-text">Material digital · 1 PDF</p><h2>{item.name}</h2>
           {item.state !== "available" ? <p className="pdf-cart-warning">{item.state === "owned" ? "Já disponível na sua biblioteca. Remova este item do carrinho." : "Indisponível para novas compras. Remova para continuar."}</p>
             : <><p className="pdf-cart-price">{cartMoney(item.priceCents)}</p>{item.priceChanged && <p className="pdf-cart-warning">Preço atualizado: de {cartMoney(item.previousPriceCents)} para {cartMoney(item.priceCents)}. Confira o novo valor.</p>}</>}
-        </div><button className="pdf-cart-remove" disabled={busy || hasPending} onClick={() => run(item.id, false)} aria-label={`Remover ${item.name}`}><Trash2 size={18} aria-hidden="true" /> Remover</button>
+        </div><button className="pdf-cart-remove" disabled={busy || hasPending || pendingOrder} onClick={() => run(item.id, false)} aria-label={`Remover ${item.name}`}><Trash2 size={18} aria-hidden="true" /> Remover</button>
       </article>)}
     </section><aside className="pdf-cart-summary" aria-label="Resumo do carrinho"><p className="eyebrow">Seu carrinho</p><h2>Resumo da seleção</h2><p>{cart.items.length} {cart.items.length === 1 ? "material" : "materiais"} · uma unidade de cada PDF</p>
       <div className="pdf-cart-total"><span>Total atual</span><strong>{cartMoney(cart.totalCents)}</strong></div>
       {cart.hasBlockedItems && <p>Materiais indisponíveis ou já adquiridos não entram no total. Remova-os antes de continuar.</p>}
-      <button disabled>Continuar para o pedido</button><p className="pdf-cart-preview">Prévia do carrinho. O registro do pedido e o atendimento pelo WhatsApp serão habilitados na próxima etapa. Nenhuma compra foi registrada.</p>
+      <button disabled={busy || hasPending || pendingOrder || cart.hasBlockedItems || !!error} onClick={() => setReview(cart)}>Revisar pedido</button><p className="pdf-cart-preview">Prévia de atendimento. Você revisará os valores antes de registrar o pedido. O pagamento será combinado pelo WhatsApp; nenhum PDF é liberado automaticamente.</p>
     </aside></div> : null}
-    <footer className="pdf-cart-footer"><button disabled={busy} onClick={() => run()}>Atualizar e recuperar seleção</button><Link href="/perfil">Meu perfil</Link><LogoutButton /></footer>
+    <footer className="pdf-cart-footer"><button disabled={busy} onClick={() => run()}>Atualizar e recuperar seleção</button><Link href="/pedidos">Meus pedidos</Link><Link href="/perfil">Meu perfil</Link><LogoutButton /></footer>
+    <dialog ref={dialog} className="order-review" aria-labelledby="review-title" onCancel={event => { if (busy) event.preventDefault(); else setReview(null); }}>
+      {review && <><p className="eyebrow">Confira antes de continuar</p><h2 id="review-title">Seu pedido, em detalhes.</h2>
+        <ul>{review.items.map(i => <li key={i.id}><span>{i.name}</span><strong>{cartMoney(i.priceCents)}</strong></li>)}</ul>
+        <p className="order-review-total">Total: {cartMoney(review.totalCents)}</p>
+        <p>Vamos salvar este pedido e abrir o WhatsApp. Envie a mensagem e aguarde a equipe orientar o pagamento. Registrar não significa pagar nem receber acesso.</p>
+        <button className="order-primary" disabled={busy} onClick={confirmOrder}>{busy ? "Registrando…" : "Registrar pedido e falar no WhatsApp"}</button>
+        <button className="order-secondary" disabled={busy} onClick={() => setReview(null)}>Voltar ao carrinho</button></>}
+    </dialog>
   </main>;
 }

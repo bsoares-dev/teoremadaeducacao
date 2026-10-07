@@ -25,7 +25,7 @@
 .pdf-cart-summary .eyebrow { color: #c9b892; }
 .pdf-cart-total { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 24px 0; margin: 22px 0; border-block: 1px solid #71818d; }
 .pdf-cart-total strong { font-size: 28px; }
-.pdf-cart-summary button { width: 100%; padding: 18px; border: 0; background: #c8c2b7; color: #34414b; font: inherit; }
+.pdf-cart-summary button { width: 100%; padding: 18px; border: 0; background: #b1a28b; color: #0f2840; font: inherit; cursor: pointer; }
 .pdf-cart-preview { color: #d4dce0; }
 .pdf-cart-empty { max-width: 1200px; margin: 30px auto; padding: 45px; background: #fffdfa; border: 1px solid #e0dbd2; text-align: center; }
 .pdf-cart-empty h2 { font: 34px Georgia, serif; }

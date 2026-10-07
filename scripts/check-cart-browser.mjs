@@ -1,7 +1,7 @@
 // Next + real migration/RPC SQL in PGlite. Auth/REST transport is local only.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { cartDatabase } from "./fixtures/cart-database.mjs";
@@ -15,6 +15,7 @@ const sessions = users.map(user => {
   return { access_token: `${Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url")}.${Buffer.from(JSON.stringify({ sub: user.id, exp, role: "authenticated", aud: "authenticated" })).toString("base64url")}.local-fixture`, refresh_token: "local-refresh", expires_at: exp, expires_in: 7200, token_type: "bearer", user: record };
 });
 let dropResponse = false, droppedOperation = null;
+let dropOrderResponse = false;
 const fixture = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Access-Control-Allow-Headers", "authorization,apikey,content-type,x-client-info,x-supabase-api-version");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -45,13 +46,25 @@ const fixture = createServer(async (req, res) => {
           dropResponse = false; droppedOperation = body.p_operation_id;
           res.writeHead(503); res.end(JSON.stringify({ message: "Simulated lost response after commit", code: "08006" })); return;
         }
+      } else if (url.pathname.endsWith("/teorema_create_order")) {
+        value = await service(async tx => (await tx.query("select teorema_create_order($1,$2,$3,$4,$5) as value", [body.p_user_id, body.p_cart_id, body.p_idempotency_key, body.p_expected_total, JSON.stringify(body.p_expected_prices)])).rows[0].value);
+        if (dropOrderResponse) { res.writeHead(503); res.end(JSON.stringify({ code: "08006", message: "Lost order response" })); return; }
+      } else if (url.pathname.endsWith("/teorema_admin_check")) {
+        value = await service(async tx => (await tx.query("select teorema_admin_check($1) as value", [body.p_actor_id])).rows[0].value);
       } else throw new Error("Unknown fixture RPC");
       res.end(JSON.stringify(value)); return;
     }
-    if (["/rest/v1/products", "/rest/v1/access_grants", "/rest/v1/carts", "/rest/v1/cart_items"].includes(url.pathname)) {
+    if (["/rest/v1/products", "/rest/v1/access_grants", "/rest/v1/carts", "/rest/v1/cart_items", "/rest/v1/orders", "/rest/v1/order_items"].includes(url.pathname)) {
       const rows = await db.transaction(async tx => {
-        await tx.exec(`set local role ${session ? "authenticated" : "anon"}`);
+        await tx.exec(`set local role ${token === serviceKey ? "service_role" : session ? "authenticated" : "anon"}`);
         if (session) await tx.query("select set_config('request.jwt.claim.sub',$1,true)", [session.user.id]);
+        if (url.pathname.endsWith("/orders")) {
+          let rows = (await tx.query("select id,code,status,total_amount,created_at,user_id from orders order by created_at desc,id")).rows;
+          for (const field of ["id", "code", "user_id"]) { const filter = url.searchParams.get(field); if (filter) rows = rows.filter(row => row[field] === filter.slice(3)); }
+          res.setHeader("Content-Range", `0-${Math.max(0, rows.length - 1)}/${rows.length}`);
+          return req.headers.accept?.includes("vnd.pgrst.object") ? rows[0] || null : rows;
+        }
+        if (url.pathname.endsWith("/order_items")) return (await tx.query("select id,product_id,product_name,unit_price from order_items where order_id=$1 order by product_id", [url.searchParams.get("order_id").slice(3)])).rows;
         if (url.pathname.endsWith("/carts")) return (await tx.query("select id from carts where status='OPEN' order by created_at limit 1")).rows[0] || null;
         if (url.pathname.endsWith("/cart_items")) return (await tx.query("select product_id from cart_items where cart_id=$1 limit 50", [url.searchParams.get("cart_id").slice(3)])).rows;
         if (url.pathname.endsWith("access_grants")) return (await tx.query("select product_id from access_grants where state='ATIVO'")).rows;
@@ -157,8 +170,56 @@ try {
   assert.equal(await page.locator(".pdf-cart-item").count(), 1);
   const forged = await context.request.post(origin + "/api/cart", { headers: { Origin: origin }, data: { userId: users[2].id, price: 1 } });
   assert.equal(forged.status(), 400);
+  // Popup blocked: the saved order must still provide a usable WhatsApp link.
+  await page.evaluate(() => { window.open = () => null; });
+  await page.getByRole("button", { name: "Revisar pedido", exact: true }).click();
+  await service(tx => tx.query("update products set price=42.34 where id=$1", [ids[0]]));
+  await page.getByRole("button", { name: "Registrar pedido e falar no WhatsApp", exact: true }).click();
+  await page.getByRole("button", { name: "Tentar novamente", exact: true }).waitFor();
+  assert.equal((await db.query("select count(*)::int as n from orders")).rows[0].n, 0);
+  await page.getByRole("button", { name: "Tentar novamente", exact: true }).click(); await ready();
+  await page.getByRole("button", { name: "Revisar pedido", exact: true }).click();
+  dropOrderResponse = true;
+  await page.getByRole("button", { name: "Registrar pedido e falar no WhatsApp", exact: true }).click();
+  await page.getByRole("button", { name: "Tentar novamente", exact: true }).waitFor();
+  assert.equal((await db.query("select count(*)::int as n from orders")).rows[0].n, 1);
+  assert.ok(await page.evaluate(() => Object.keys(sessionStorage).some(k => k.startsWith("teorema:order-pending:"))));
+  dropOrderResponse = false;
+  await page.reload(); await page.waitForURL("**/pedidos/*");
+  const saved = (await db.query("select id,code,total_amount,status from orders")).rows[0];
+  assert.equal(Number(saved.total_amount), 42.34);
+  assert.equal(saved.status, "AGUARDANDO_CONFIRMACAO");
+  assert.equal((await db.query("select count(*)::int as n from orders")).rows[0].n, 1);
+  assert.equal((await db.query("select count(*)::int as n from access_grants")).rows[0].n, 0);
+  const wa = page.locator('a[href^="https://wa.me/"]');
+  await wa.waitFor();
+  assert.match(new URL(await wa.getAttribute("href")).searchParams.get("text"), /42,34/);
+  assert.match(new URL(await wa.getAttribute("href")).searchParams.get("text"), new RegExp(saved.code));
+  await mkdir(".data/order-check", { recursive: true });
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Order overflow ${width}`);
+    if (width === 390 || width === 1440) await page.screenshot({ path: `.data/order-check/${width}.png`, fullPage: true });
+  }
+  await page.goto(origin + "/pedidos"); await page.getByText(saved.code, { exact: true }).waitFor();
+  assert.equal((await context.request.get(origin + "/api/admin/orders")).status(), 403);
+  await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("bob@example.test"); await ready();
+  const denied = await page.goto(origin + "/pedidos/" + saved.id); assert.equal(denied.status(), 404);
+  await page.goto(origin + "/pedidos"); await page.getByText("Nenhum pedido nesta página.", { exact: true }).waitFor();
+  await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("bernardozsoares11@gmail.com"); await ready();
+  const adminOrders = await context.request.get(origin + "/api/admin/orders?code=" + saved.code);
+  assert.equal(adminOrders.status(), 200); assert.equal((await adminOrders.json()).items[0].code, saved.code);
   assert.deepEqual(errors, []);
+  console.log("PASS stage 6: changed price requires review; lost committed response recovered as the same order; blocked popup fallback; persisted WhatsApp code/price; no grants; customer isolation; verified admin listing; responsive order pages.");
   console.log("PASS: visitor -> login/register links -> atomic merge -> reload -> lost response/retry -> price update -> unavailable/removal -> logout/login -> second-user isolation -> expired session -> confirmation callback. Responsive at 320/390/768/1440. No browser runtime errors.");
   console.log("Real migration/RPC SQL on isolated PGlite; simulated Auth/REST only. No remote mutations or messages.");
 } catch (error) { console.error(output); throw error; }
-finally { await browser?.close(); child.kill(); fixture.close(); await db.close(); }
+finally {
+  await browser?.close();
+  // Next starts a worker process. Stop only this fixture's process tree before
+  // another Next command can read or regenerate the same build directory.
+  if (process.platform === "win32" && child.exitCode === null) {
+    spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+  } else child.kill();
+  fixture.close(); await db.close();
+}

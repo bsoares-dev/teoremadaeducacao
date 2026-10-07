@@ -6,6 +6,7 @@ import { cartPreviewEnabled } from "@/lib/cart-contract";
 import type { Metadata } from "next";
 import Cart from "./cart";
 import "./cart.css";
+import "@/app/pedidos/orders.css";
 import "@/app/materiais/catalog.css";
 
 export const metadata: Metadata = { title: "Seu carrinho | Teorema da Educação", robots: { index: false, follow: false } };

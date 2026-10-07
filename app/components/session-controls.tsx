@@ -38,7 +38,7 @@ export function LogoutButton() {
   return <div><button className="account-button secondary" onClick={logout} disabled={busy}>{busy ? "Saindo..." : "Sair"}</button>{error && <p role="alert">{error}</p>}</div>;
 }
 
-export function RetryButton() {
+export function RetryButton({ label = "Tentar novamente" }: { label?: string }) {
   const router = useRouter();
-  return <button className="account-button" onClick={() => router.refresh()}>Tentar novamente</button>;
+  return <button className="account-button" onClick={() => router.refresh()}>{label}</button>;
 }
