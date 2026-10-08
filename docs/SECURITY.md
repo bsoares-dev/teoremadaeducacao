@@ -2,8 +2,8 @@
 
 ## Configuração atual
 - NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: cliente público.
-- SUPABASE_SERVICE_ROLE_KEY: somente servidor, usada após verificar a sessão e o e-mail administrativo confirmado.
-- A autorização administrativa está centralizada em lib/auth-policy.ts.
+- SUPABASE_SERVICE_ROLE_KEY: somente servidor, usada após identidade verificada e autorização específica da operação.
+- A autorização administrativa exige e-mail confirmado, conta não anônima e UUID elegível na tabela privada, validado por `teorema_admin_check`. E-mail ou metadados editáveis sozinhos não autorizam. Página e API de usuários usam a mesma regra.
 - ADMIN_PASSWORD e o cookie teorema_admin_session não autorizam mais nenhuma operação.
 - /api/admin/login, /logout e /registrations antigos retornam 410.
 - /api/register foi convertido para criar conta Supabase; não grava mais em registrations.
@@ -12,6 +12,8 @@
 A API e as páginas protegidas verificam a identidade com getUser. As respostas de perfil/admin não são armazenadas em cache público.
 A notificação de sessão no navegador só atualiza a interface; a autorização real ocorre no servidor.
 Consulte a [documentação oficial de SSR do Supabase](https://supabase.com/docs/guides/auth/server-side/creating-a-client).
+
+Revisão de 07/10/2026 — etapa 9: Next.js corrigido para 16.3.8 e source-map-js para 1.2.2. `npm audit` sem vulnerabilidades nas versões instaladas nessa data; isso não substitui atualização contínua, revisão de código ou proteção da infraestrutura.
 
 ## Aplicação da migração
 1. Obtenha backup/snapshot do banco e execute supabase/audit.sql (somente estrutura, sem dados pessoais).
@@ -26,19 +28,18 @@ Consulte a [documentação oficial de SSR do Supabase](https://supabase.com/docs
 
 A migração normaliza/valida CPF e telefone em novas escritas de profiles. Não corrige dados inválidos existentes silenciosamente.
 RLS permite ao aluno consultar apenas o próprio perfil e carrinhos/itens. Somente produtos com is_active=true são públicos.
-Produtos cadastrados no painel são publicados imediatamente. Produtos existentes com is_active=false ou NULL continuam ocultos.
+Produtos novos são rascunhos. Publicação exige PDF validado, capa válida e ação explícita; `is_active` acompanha o estado publicado. O banco, e não somente a interface, impede publicar material incompleto. Despublicar não revoga compras anteriores. O catálogo de produção exclui o prefixo reservado `[HOMOLOGACAO] ` após o deploy dessa revisão.
 Política restritiva de perfil limita políticas SELECT antigas permissivas. Grants de mutação são revogados.
 A service role ignora RLS; mantenha-a exclusivamente no servidor.
 Referência: [Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
 ## Operações de carrinho
-- Funções teorema_get_or_create_cart, teorema_set_cart_item e teorema_prepare_cart são SECURITY INVOKER e executáveis apenas por service_role (além do proprietário do banco).
-- O backend deve obter p_user_id exclusivamente de getUser(), validar origem/corpo da requisição e só então usar a service role. Nunca aceite user_id, preço, total ou status do navegador.
-- Alterações bloqueiam a linha do carrinho; adição busca produto ativo e preço no catálogo. Quantidade zero remove o item. Criação usa trava transacional por usuário.
-- A preparação revalida os produtos/preços em uma transação e muda OPEN para SENT_TO_WHATSAPP. Falha em qualquer item desfaz toda a operação.
-- SENT_TO_WHATSAPP significa preparação para atendimento; não comprova entrega de mensagem, pagamento ou autorização de download. Nenhuma dessas RPCs permite COMPLETED.
-- Alterações feitas manualmente com SQL privilegiado ou service role fora dessas funções continuam sendo responsabilidade do operador. Essas credenciais ignoram RLS.
-- As funções não são expostas por endpoints novos nesta alteração. A tela atual continua com compra assistida por WhatsApp; conectar uma interface de carrinho a essas funções é uma etapa separada.
+- `teorema_read_cart`/`teorema_sync_cart` e `teorema_create_order` são exclusivas do servidor. Writers legados foram retirados do fluxo e não devem ser reativados.
+- UUID vem de `getUser()`, não do corpo. Origem exata, JSON com media type exato, corpo limitado e schemas estritos antes da escrita. Valores esperados pelo cliente são somente uma comparação com os preços recalculados no banco.
+- Revisão do carrinho, trava por conta e chave idempotente protegem merge/remoção e pedido. Quantidade digital é 1; máximo de 50 materiais. Retentativas recuperam a mesma operação, inclusive após uma resposta perdida depois do commit.
+- Registrar pedido não libera PDF. A mensagem do WhatsApp é editável; admin confere pedido salvo e pagamento fora do site antes da confirmação transacional de todos os itens.
+- Confirmar/cancelar/revogar/reliberar exigem UUID administrativo privado; decisões têm auditoria e isolamento por conta. Escrita SQL privilegiada fora das RPCs continua sendo responsabilidade do operador.
+- Carrinho/pedidos/biblioteca/download permanecem bloqueados em Production, mesmo com flags true. Só desenvolvimento ou Preview autorizado pode executar esse fluxo até o aceite de publicação.
 - Referência: [Funções e permissões no Supabase](https://supabase.com/docs/guides/database/functions).
 
 ## Pedidos e PDFs — estrutura aplicada da etapa 2
@@ -47,7 +48,25 @@ A migração de pedidos, arquivos, acessos e auditoria foi aplicada no Supabase 
 
 O Supabase atual não concede leitura de `auth.users` a `service_role`. Uma única função privada `SECURITY DEFINER`, com proprietário `postgres`, `search_path` vazio, chamada restrita a service role e sem retorno de dados de Auth, verifica elegibilidade. Não expor `teorema_private` na Data API nem conceder leitura ampla de Auth para contornar erros. UUIDs administrativos são fixados na tabela privada; metadados editáveis não concedem acesso.
 
-Downloads exigirão validação de acesso ativo e geração de URLs temporárias na etapa 8. O banco prepara os controles, mas não substitui a validação de bytes do upload nem representa um fluxo de download já implementado. Homologação real e procedimento de backup estão no documento da etapa 2.
+Uploads diretos usam reserva idempotente, staging privado e validação limitada de bytes por worker; extensão/MIME informados pelo cliente não são prova de segurança. PDFs validados ficam no bucket privado, fora de `public/` do Next.js. Capas são reprocessadas. Não representa antivírus ou DRM.
+
+A biblioteca exige sessão confirmada e acesso ativo. Cada download revalida autorização e versão atual após inspecionar o objeto no Storage; tamanho/MIME/cache divergentes bloqueiam a assinatura. URL privada por 60 segundos, sem armazenamento em localStorage/sessionStorage, logs ou banco. Revogar impede novas URLs; não recolhe cópias nem invalida imediatamente uma URL já emitida. Atualizações do material estão incluídas, sem prazo automático de acesso. Evidências/limites: [etapa 8](ETAPA-8-BIBLIOTECA-DOWNLOAD.md) e [etapa 9](ETAPA-9-HOMOLOGACAO.md).
+
+## Limites persistentes e HTTP
+
+Migração `20261008024344_teorema_request_limits`: contador atômico privado por UUID/ação, compartilhado entre instâncias. Não guarda IP, payload, CPF ou token; no máximo seis linhas por conta. RPC `SECURITY INVOKER` com search_path vazio, somente service role; não amplia leitura de Auth. `supabase/verify-request-limits.sql` verifica RLS/grants/contrato sem retornar PII.
+
+| Operação | Limite por conta |
+| --- | --- |
+| Biblioteca / leitura de carrinho | 120 por minuto para cada ação |
+| Download | 20 por minuto |
+| Alteração de carrinho | 60 por minuto |
+| Criação/recuperação de pedido | 10 por 15 minutos |
+| Reserva de upload administrativo | 30 por 15 minutos |
+
+Resposta `429`, `Retry-After` e `no-store`; a tentativa pendente não é descartada. Falha do limitador fecha a operação com `503`, sem fallback em memória. Contadores saturam e a próxima janela reinicia o orçamento. Não é proteção DDoS, quota global de Storage ou solução antiabuso para contas em massa: Auth tem limites próprios; CAPTCHA, SMTP, alertas e camada de borda precisam de configuração antes da publicação.
+
+Headers: `nosniff`, `DENY`/frame-ancestors, referrer `no-referrer`, Permissions-Policy e CSP com destinos restritos ao Supabase deste projeto e fontes utilizadas. Removido X-Powered-By. Rotas privadas e APIs recebem `X-Robots-Tag: noindex, nofollow, noarchive`; desenvolvimento/Preview recebem noindex global. Isso não substitui controle de acesso. CSP estática permite inline para o bootstrap do Next e o design existente; não prometer proteção equivalente a CSP estrita com nonce. Não definir domínio/canonical/HSTS por inferência. Verificar Vercel Toolbar/CSP no Preview real.
 
 ## Confirmação de e-mail
 A confirmação permanece habilitada. A interface não anuncia login antes de existir sessão.
@@ -64,8 +83,8 @@ Um e-mail já existente pode gerar resposta genérica por proteção contra enum
 ## Validação antes de publicar
 - Anônimo: /perfil, /admin e /carrinho devem redirecionar; APIs privadas respondem 401.
 - Aluno: lê só seu perfil, /admin negado, API administrativa 403, escrita direta em products/profiles negada.
-- Administrador confirmado: consulta páginas de usuários/produtos e cria produto.
-- Produto salvo: aparece no catálogo; nada é tratado como compra paga.
+- Administrador confirmado e UUID elegível: consulta páginas de usuários/produtos/pedidos. Remover elegibilidade deve negar também leitura de dados pessoais.
+- Produto salvo: fica como rascunho; só aparece após validar PDF/capa e publicar. Nada é tratado como compra paga sem confirmação explícita.
 - Saída: testar em duas abas; falha de rede não deve anunciar saída concluída.
 - Perfil ausente/RLS indisponível: exibir erro com opção de tentar novamente, sem loop de login.
 - Signup: inválido bloqueado; válido com confirmação pendente não vai para carrinho.
@@ -75,4 +94,11 @@ Um e-mail já existente pode gerar resposta genérica por proteção contra enum
 ## Limites
 Sem credencial SQL/Management ou sessão no Dashboard, a service role REST não permite auditar pg_policies nem executar migrações.
 Testes locais cobrem PostgreSQL/RLS com auth simulada; Vercel, SMTP e sessões reais precisam de validação no ambiente de publicação.
-Produtos, pedidos e downloads não compartilham autorização: pagamento/entrega será implementado separadamente.
+Produtos, pedidos e downloads têm autorizações distintas; confirmar pagamento é procedimento humano externo ao site, não integração financeira automática.
+
+Infraestrutura ainda pendente antes da publicação:
+- Banco consultado em 07/10/2026: PostgreSQL 17.6. Supabase publicou correções em 17.11; planejar backup e janela de manutenção, pois atualização pode exigir indisponibilidade. Não executar pause/restore/upgrade pela autorização de migrações SQL. [Changelog oficial](https://supabase.com/changelog/postgres-15-19-17-11-breaking-changes).
+- Advisor mantém aviso de proteção contra senhas vazadas desabilitada. Não contratar plano ou alterar configurações/segredos automaticamente. Revisar senha administrativa e MFA com o responsável. [Orientação oficial](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+- Integração Vercel retorna 403 neste escopo. Push não comprova build/deploy bem-sucedido. Exige verificar projeto/deployment quando houver acesso.
+- SMTP, recuperação de senha e confirmação no e-mail real ainda precisam de ensaio. Confirmar somente contas sintéticas de homologação pelo Admin API não comprova entrega de e-mail e nunca deve virar o fluxo de clientes.
+- Snapshot DPAPI da etapa 2 não é backup completo de Auth/Storage. Preservar chaves históricas de `registrations`; dados cifrados não podem ser recuperados sem elas.

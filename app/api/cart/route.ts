@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { cartMutation, cartSnapshot, cartResult, cartPreviewEnabled } from "@/lib/cart-contract";
 import { publicCover } from "@/lib/catalog-selection";
 import { privateJson, readJson } from "@/lib/http";
+import { consumeRequest, requestLimitResponse } from "@/lib/request-limits";
 
 async function access() {
   const { user } = await getAuth();
@@ -23,10 +24,11 @@ export async function GET() {
   if (!cartPreviewEnabled(process.env)) return privateJson({ error: "Recurso indisponível." }, 404);
   try {
     const auth = await access(); if (auth.error) return auth.error;
+    await consumeRequest(auth.db, auth.user.id, "CART_READ");
     const { data, error } = await auth.db.rpc("teorema_read_cart", { p_user_id: auth.user.id });
     if (error) return failure(error.code);
     return privateJson({ cart: clean(cartSnapshot.parse(data)) });
-  } catch { return failure(); }
+  } catch (error) { return requestLimitResponse(error) || failure(); }
 }
 export async function POST(request: Request) {
   if (!cartPreviewEnabled(process.env)) return privateJson({ error: "Recurso indisponível." }, 404);
@@ -35,6 +37,7 @@ export async function POST(request: Request) {
   catch { return privateJson({ error: "Requisição inválida." }, 400); }
   try {
     const auth = await access(); if (auth.error) return auth.error;
+    await consumeRequest(auth.db, auth.user.id, "CART_WRITE");
     const { data, error } = await auth.db.rpc("teorema_sync_cart", {
       p_user_id: auth.user.id, p_operation_id: input.operationId, p_cart_id: input.cartId, p_revision: input.revision,
       p_add_ids: [...new Set(input.addIds.map(id => id.toLowerCase()))], p_remove_ids: [...new Set(input.removeIds.map(id => id.toLowerCase()))],
@@ -42,5 +45,5 @@ export async function POST(request: Request) {
     if (error) return failure(error.code);
     const result = cartResult.parse(data);
     return privateJson({ ...result, cart: clean(result.cart) });
-  } catch { return failure(); }
+  } catch (error) { return requestLimitResponse(error) || failure(); }
 }

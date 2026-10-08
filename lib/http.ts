@@ -8,7 +8,8 @@ export async function readJson(request: Request) {
   if (request.headers.get("origin") !== new URL(request.url).origin) {
     throw new Error("Origem não permitida.");
   }
-  if (!request.headers.get("content-type")?.includes("application/json")) throw new Error("Formato inválido.");
+  const mediaType = request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
+  if (mediaType !== "application/json") throw new Error("Formato inválido.");
   // Bound the actual streamed body, not just the optional Content-Length header.
   const reader = request.body?.getReader();
   if (!reader) throw new Error("Corpo vazio.");

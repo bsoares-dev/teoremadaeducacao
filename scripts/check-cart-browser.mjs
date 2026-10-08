@@ -63,7 +63,8 @@ const fixture = createServer(async (req, res) => {
     if (url.pathname.startsWith("/rest/v1/rpc/")) {
       assert.equal(token, serviceKey, "RPC must use server credentials");
       let value;
-      if (url.pathname.endsWith("/teorema_read_library")) value = await service(async tx => (await tx.query("select teorema_read_library($1,$2) as value", [body.p_user_id, body.p_page])).rows[0].value);
+      if (url.pathname.endsWith("/teorema_consume_request")) value = await service(async tx => (await tx.query("select teorema_consume_request($1,$2) as value", [body.p_user_id, body.p_action])).rows[0].value);
+      else if (url.pathname.endsWith("/teorema_read_library")) value = await service(async tx => (await tx.query("select teorema_read_library($1,$2) as value", [body.p_user_id, body.p_page])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_resolve_pdf")) value = await service(async tx => (await tx.query("select teorema_resolve_pdf($1,$2) as value", [body.p_user_id, body.p_product_id])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_read_cart")) value = await service(async tx => (await tx.query("select teorema_read_cart($1) as value", [body.p_user_id])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_sync_cart")) {

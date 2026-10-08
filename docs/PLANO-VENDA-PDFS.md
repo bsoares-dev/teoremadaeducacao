@@ -2,7 +2,7 @@
 
 ## Documento de referência
 
-Versão 12, atualizada em 07/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapa 3 EM VALIDAÇÃO, com gravação de rascunho demonstrada pelo responsável em produção; etapas 4–8 implementadas em prévia local, EM VALIDAÇÃO integrada; etapas 9–10 PENDENTES. O responsável adiou o ensaio real de upload/publicação da etapa 3 e autorizou iniciar a etapa 8. Biblioteca privada e download temporário verificados localmente; consulta paginada aplicada/verificada no Supabase como `20261008020054`, sem alterar os dados. Commit/push autorizados como rotina ao concluir etapas. A integração Vercel retornou 403 na última consulta; não houve ativação do fluxo comercial.
+Versão 13, atualizada em 07/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapas 3–8 EM VALIDAÇÃO integrada; etapa 9 EM VALIDAÇÃO parcial, autorizada pelo responsável, com ensaio identificado no Supabase atual aprovado mas aguardando credencial; etapa 10 ADIADA, não removida. Segurança administrativa/HTTP e dependências corrigidas; 68 testes, navegador e build de produção aprovados. Limites persistentes aplicados/verificados na migração `20261008024344`. Credencial antiga recusada antes de criar dados. Commit/push autorizados como rotina. Integração Vercel segue com 403; publicação comercial bloqueada.
 Este documento é a referência para comandos como “faça a etapa 4”. Manter a numeração estável; registrar mudanças de escopo e decisões aqui.
 O comando “faça a etapa 1” autorizou sua documentação e seus wireframes locais. Não altera aplicação, banco, Storage, Vercel ou autoriza publicação de recursos.
 
@@ -180,7 +180,7 @@ Aceite: fluxo funciona em celular e desktop; cliente vê só materiais autorizad
 
 ## Etapa 9 — Homologação ponta a ponta e segurança
 
-Status: PENDENTE. Dependências: 3–8.
+Status: EM VALIDAÇÃO — hardening/testes locais entregues; aceite integrado pendente. Dependências: 3–8. [Evidências e pendências](ETAPA-9-HOMOLOGACAO.md). Autorizações: iniciar a etapa 9; usar o banco atual com registros identificados; exibir temporariamente dois materiais `[HOMOLOGACAO] — não comprar`, arquivando-os ao final. Não autoriza mensagens, pagamentos, ativação comercial, alterações de senha ou upgrade de infraestrutura.
 
 Entregas:
 - Testes automatizados de banco, autenticação, RLS/Storage, uploads, pedidos, idempotência e permissões.
@@ -195,7 +195,7 @@ Aceite: checklist aprovado, nenhuma falha crítica aberta e evidências dos test
 
 ## Etapa 10 — Publicação controlada e operação
 
-Status: PENDENTE. Dependências: 9 aprovada e autorização explícita para publicar.
+Status: ADIADA até domínio e aceite de homologação. Não eliminada: domínio, Auth/callbacks, backup, configuração final, teste Vercel e treinamento continuam necessários. Dependências: 9 aprovada e autorização explícita para publicar. Não iniciada automaticamente.
 
 Entregas:
 - Conferir backup, variáveis de produção, domínio, callbacks de autenticação e permissões de Storage.
@@ -230,8 +230,8 @@ Aceite: fluxo publicado e validado no domínio real, admin consegue operá-lo e 
 | 6 | EM VALIDAÇÃO integrada | Revisão, pedido persistido, recuperação, WhatsApp e histórico testados localmente; RPC remota existente reutilizada |
 | 7 | EM VALIDAÇÃO integrada | Pedidos, confirmação integral, cancelamento, revogação/reliberação e auditoria testados localmente; RPCs remotas existentes reutilizadas |
 | 8 | EM VALIDAÇÃO integrada | Biblioteca, versão atual e download com autorização/URL de 60 segundos testados localmente; migração aplicada/verificada; homologação Storage/Auth real pendente |
-| 9 | PENDENTE | Aguardando fluxo integrado |
-| 10 | PENDENTE | Nenhuma publicação deste escopo autorizada |
+| 9 | EM VALIDAÇÃO parcial | 68 testes, build e smokes/navegador aprovados; migração aplicada; credencial real/SMTP/Vercel e manutenção PostgreSQL pendentes |
+| 10 | ADIADA | Domínio indefinido; não removida nem iniciada, fluxo comercial bloqueado |
 
 Referência: [Supabase Storage — buckets privados e links temporários](https://supabase.com/docs/guides/storage/buckets/fundamentals).
 

@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 
 const base = process.env.TEST_BASE_URL || "http://localhost:3100";
 const get = (path, options = {}) => fetch(base + path, { redirect: "manual", ...options });
+for (const path of ["/", "/login", "/cadastro", "/api/profile", "/auth/callback", "/meus-materiais"]) {
+  const response = await get(path);
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(response.headers.get("x-frame-options"), "DENY");
+  assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+  assert.match(response.headers.get("content-security-policy") || "", /object-src 'none'/);
+  assert.ok(!response.headers.has("x-powered-by"));
+  if (path !== "/") assert.match(response.headers.get("x-robots-tag") || "", /noindex/);
+}
 for (const path of ["/perfil", "/admin", "/carrinho"]) {
   const response = await get(path);
   assert.equal(response.status, 307, path + " must redirect anonymous visitors");

@@ -4,6 +4,7 @@ import { cartPreviewEnabled } from "@/lib/cart-contract";
 import { orderInput } from "@/lib/order-contract";
 import { readOrder } from "@/lib/orders";
 import { privateJson, readJson } from "@/lib/http";
+import { consumeRequest, requestLimitResponse } from "@/lib/request-limits";
 
 export async function POST(request: Request) {
   if (!cartPreviewEnabled(process.env)) return privateJson({ error: "Recurso indisponível." }, 404);
@@ -14,7 +15,9 @@ export async function POST(request: Request) {
     const { user, supabase } = await getAuth();
     if (!user) return privateJson({ error: "Entre novamente para recuperar seu pedido." }, 401);
     if (!user.email_confirmed_at || user.is_anonymous) return privateJson({ error: "Confirme seu e-mail antes de registrar um pedido." }, 403);
-    const { data, error } = await getSupabaseAdmin().rpc("teorema_create_order", {
+    const db = getSupabaseAdmin();
+    await consumeRequest(db, user.id, "ORDER_CREATE");
+    const { data, error } = await db.rpc("teorema_create_order", {
       p_user_id: user.id, p_cart_id: input.cartId, p_idempotency_key: input.operationId,
       p_expected_total: input.totalCents / 100,
       p_expected_prices: Object.fromEntries(input.items.map(i => [i.id.toLowerCase(), i.priceCents / 100])),
@@ -30,7 +33,8 @@ export async function POST(request: Request) {
     const order = await readOrder(supabase, user.id, data);
     if (!order) throw new Error("Order recovery unavailable");
     return privateJson({ order });
-  } catch {
+  } catch (error) {
+    const limited = requestLimitResponse(error); if (limited) return limited;
     console.error("order_request_unavailable"); // No payload, token or personal data.
     return privateJson({ error: "Não foi possível confirmar o resultado. Recupere a mesma tentativa; não faça um novo pedido." }, 503);
   }

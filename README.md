@@ -12,8 +12,10 @@ Next.js + TypeScript + Supabase Auth/Postgres. O estilo usa CSS do projeto (não
 - `npm run typecheck`
 - `npm test`: regras de acesso, validações e migração em PostgreSQL local descartável.
 - `npm run build`
+- `node scripts/check-build-secrets.mjs`: após build, verifica valores de credenciais privadas nos assets do navegador, sem imprimi-los.
 - `node scripts/check-supabase.mjs`: inspeção remota somente leitura, sem retornar dados pessoais.
 - `npm run start -- --port 3100` e depois `node scripts/check-http.mjs`: bloqueios HTTP e formulário inválido, sem criar contas.
+- `node scripts/check-public-browser.mjs`: vitrine/login/cadastro responsivos e CSP no build de produção, sem escritas (Playwright/Edge).
 
 ## Fluxos
 - Home: institucional e contato pelo WhatsApp. O formulário de leads foi removido.
@@ -51,6 +53,9 @@ Migrações `20261005004458_teorema_pdf_orders_access.sql`, `20261005004940_teor
 [Etapa 8](docs/ETAPA-8-BIBLIOTECA-DOWNLOAD.md): biblioteca paginada, autorização a cada download, arquivo atual validado e URL temporária. 61 testes e ensaio de navegador/API/SQL local aprovados, com Auth/REST/Storage simulados. Migração `20261008020054_teorema_library_read.sql` aplicada/verificada no Supabase, dados preservados e smoke real somente leitura aprovado. Mesmas flags de prévia, sem ativação em Production. Homologação real na etapa 9.
 
 ## Testes de banco
+
+[Etapa 9](docs/ETAPA-9-HOMOLOGACAO.md): hardening administrativo por UUID, headers/noindex, dependências corrigidas e limites persistentes. Migração `20261008024344_teorema_request_limits` aplicada/verificada sem alterar os dados existentes. `supabase/verify-request-limits.sql` verifica os controles novos; ensaio real opt-in descrito no documento, sem envio WhatsApp/abertura de Production. Vercel/SMTP/manutenção PostgreSQL ainda pendentes. Etapa 10 adiada até domínio e aceite, não removida.
+
 Os testes criam um PostgreSQL em memória (PGlite) com fixtures sintéticas de auth.users.
 Validam isolamento, grants por coluna, preservação do trigger/dados existentes, CPF, preços, RPCs exclusivas do servidor, rollback de carrinho e a nova estrutura de pedidos/acessos/arquivos privados.
 Não substituem a verificação do schema/triggers reais e o fluxo de e-mail em produção.

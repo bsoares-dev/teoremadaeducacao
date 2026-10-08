@@ -1,6 +1,7 @@
 import { downloadInput } from "@/lib/library-contract";
 import { libraryAuth, libraryRoute, downloadTicket, LibraryError } from "@/lib/library";
 import { privateJson, readJson } from "@/lib/http";
+import { consumeRequest } from "@/lib/request-limits";
 
 export async function POST(request: Request) {
   return libraryRoute(async () => {
@@ -8,6 +9,7 @@ export async function POST(request: Request) {
     let raw;
     try { raw = await readJson(request); } catch { throw new LibraryError("Formato ou origem da requisição inválida.", 400); }
     const { productId } = downloadInput.parse(raw);
+    await consumeRequest(db, user.id, "PDF_DOWNLOAD");
     const response = privateJson(await downloadTicket(db, user.id, productId));
     response.headers.set("Referrer-Policy", "no-referrer");
     response.headers.set("X-Content-Type-Options", "nosniff");

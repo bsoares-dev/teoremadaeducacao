@@ -5,6 +5,7 @@ import { privateJson, readJson } from "./http";
 import { getSupabaseAdmin } from "./supabaseAdmin";
 import { productSchema } from "./schemas";
 import { uuid, PDF_LIMIT, COVER_LIMIT, STAGING_BUCKET, readBounded } from "./uploads";
+import { requestLimitResponse } from "./request-limits";
 
 export const editProductSchema = productSchema.omit({ imageUrl: true }).extend({ id: uuid, revision: z.number().int().nonnegative() }).strict();
 export const stateSchema = z.object({ state: z.enum(["PUBLISHED", "UNPUBLISHED", "ARCHIVED"]), revision: z.number().int().positive(), operationId: uuid }).strict();
@@ -33,6 +34,7 @@ export async function productAdmin() {
 export async function adminRoute(run: () => Promise<Response>) {
   try { return await run(); }
   catch (error) {
+    const limited = requestLimitResponse(error); if (limited) return limited;
     if (error instanceof ZodError) return privateJson({ error: error.issues[0]?.message || "Dados inválidos." }, 400);
     if (error instanceof AdminError) return privateJson({ error: error.message }, error.status);
     return privateJson({ error: "Operação temporariamente indisponível. Nenhum arquivo deve ser reenviado sem consultar seu estado." }, 503);

@@ -7,6 +7,7 @@ import { privateJson } from "./http";
 import { DOWNLOAD_TTL, libraryPage, pdfFilename, validateDownloadUrl } from "./library-contract";
 import { PDF_LIMIT } from "./uploads";
 import { publicCover } from "./catalog-selection";
+import { requestLimitResponse } from "./request-limits";
 
 export class LibraryError extends Error {
   constructor(message: string, public status: number) { super(message); }
@@ -26,6 +27,7 @@ export function libraryDbError(error: { code?: string } | null) {
 export async function libraryRoute(run: () => Promise<Response>) {
   try { return await run(); }
   catch (cause) {
+    const limited = requestLimitResponse(cause); if (limited) return limited;
     if (cause instanceof z.ZodError) return privateJson({ error: "Dados da solicitação inválidos." }, 400);
     if (cause instanceof LibraryError) return privateJson({ error: cause.message }, cause.status);
     return privateJson({ error: "Não foi possível consultar os materiais agora. Tente novamente." }, 503);

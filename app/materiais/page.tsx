@@ -23,12 +23,16 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
   const result = await (async () => {
     try {
       const client = await createClient();
-      return await client.from("products")
+      const query = client.from("products")
     .select("id,name,description,price,image_url", { count: "exact" })
     .eq("is_active", true)
     // Database constraint makes is_active equivalent to PUBLISHED. The public
     // role intentionally cannot SELECT the internal publication_status column.
-    .order("created_at", { ascending: false }).order("id").range(from, to);
+    .order("created_at", { ascending: false }).order("id");
+      // Reserved prefix for the explicitly authorized live acceptance test.
+      // Test metadata can be read in Preview, never offered on the production UI.
+      if (process.env.NODE_ENV === "production" && process.env.VERCEL_ENV !== "preview") query.not("name", "like", "[HOMOLOGACAO] %");
+      return await query.range(from, to);
     } catch { return { data: null, error: true, count: null }; }
   })();
   const { data: materials, error, count } = result;

@@ -17,7 +17,7 @@ export const signupSchema = z.object({
   password: z.string().min(8, "Use uma senha com pelo menos 8 caracteres.").max(128),
   cpf: z.string().transform(v => v.replace(/\D/g, "")).refine(isValidCpf, "Informe um CPF válido."),
   phone: z.string().transform(v => v.replace(/\D/g, "")).refine(v => /^[1-9]{2}\d{8,9}$/.test(v), "Informe DDD e telefone válidos."),
-});
+}).strict();
 
 export const productSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome.").max(120),

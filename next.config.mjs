@@ -1,5 +1,9 @@
+import { headerRules } from "./config/security-headers.mjs";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
+  headers: () => headerRules(),
   images: {
     remotePatterns: process.env.NEXT_PUBLIC_SUPABASE_URL ? [{
       protocol: "https",

@@ -1,7 +1,8 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { isAdmin, safeNext } from "./auth-policy";
+import { verifiedAdmin, safeNext } from "./auth-policy";
+import { getSupabaseAdmin } from "./supabaseAdmin";
 
 export async function getAuth() {
   const supabase = await createClient();
@@ -20,5 +21,7 @@ export async function requireUser(next = "/perfil") {
 
 export async function adminAccess() {
   const auth = await getAuth();
-  return { ...auth, allowed: isAdmin(auth.user) };
+  const allowed = await verifiedAdmin(auth.user, async id =>
+    getSupabaseAdmin().rpc("teorema_admin_check", { p_actor_id: id }));
+  return { ...auth, allowed };
 }
