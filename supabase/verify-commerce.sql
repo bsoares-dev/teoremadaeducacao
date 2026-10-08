@@ -37,7 +37,7 @@ where has_column_privilege('authenticated',e.tbl,e.col,'SELECT')
 union all
 select '05_RPC_permissoes_ou_contexto_inseguro','SEGURANCA',count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
 where ((n.nspname='teorema_private' and p.proname like 'commerce_%')
-  or (n.nspname='public' and p.proname in ('teorema_create_order','teorema_confirm_order','teorema_cancel_order','teorema_set_access_state','teorema_resolve_pdf')))
+  or (n.nspname='public' and p.proname in ('teorema_create_order','teorema_confirm_order','teorema_cancel_order','teorema_set_access_state','teorema_resolve_pdf','teorema_read_library')))
 and (has_function_privilege('anon',p.oid,'EXECUTE') or has_function_privilege('authenticated',p.oid,'EXECUTE')
   or (p.prosecdef and not (n.nspname='teorema_private' and p.proname='commerce_assert_user'
       and p.oid::regprocedure::text='teorema_private.commerce_assert_user(uuid)' and pg_get_userbyid(p.proowner)='postgres'))

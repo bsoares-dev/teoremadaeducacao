@@ -15,7 +15,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const { page, size, from, to } = pagination((await searchParams).page ?? null);
   const { data, error, count } = await supabase.from("orders").select(orderColumns, { count: "exact" }).eq("user_id", user.id).order("created_at", { ascending: false }).order("id").range(from, to);
   return <SessionGuard userId={user.id}><main className="orders-page">
-    <header><Link href="/">Teorema <em>da Educação</em></Link><Link href="/carrinho">Meu carrinho</Link></header>
+    <header><Link href="/">Teorema <em>da Educação</em></Link><Link href="/meus-materiais">Meus materiais</Link><Link href="/carrinho">Meu carrinho</Link></header>
     <p className="eyebrow">Área do aluno</p><h1>Meus <em>pedidos.</em></h1><p>Consulte seus registros e retome o atendimento sem criar outro pedido.</p>
     {error ? <section role="alert"><p>Não foi possível consultar seus pedidos.</p><RetryButton /></section> : <>
       {!data?.length && <p>Nenhum pedido nesta página.</p>}

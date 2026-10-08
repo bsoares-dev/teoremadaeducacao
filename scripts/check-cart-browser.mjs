@@ -1,4 +1,4 @@
-// Next + real migration/RPC SQL in PGlite. Auth/REST transport is local only.
+// Next + real migration/RPC SQL in PGlite. Auth/REST/Storage transport is local only.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { spawn, spawnSync } from "node:child_process";
@@ -18,6 +18,8 @@ const sessions = users.map(user => {
 let dropResponse = false, droppedOperation = null;
 let dropOrderResponse = false;
 let dropDecisionResponse = false;
+const signedDownloads = new Map();
+let pdfCacheControl = "max-age=0";
 const fixture = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Access-Control-Allow-Headers", "authorization,apikey,content-type,x-client-info,x-supabase-api-version");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -38,10 +40,32 @@ const fixture = createServer(async (req, res) => {
     if (url.pathname === "/auth/v1/signup") { res.end(JSON.stringify({ user: sessions[1].user })); return; }
     if (url.pathname === "/auth/v1/verify") { res.end(JSON.stringify(sessions[1])); return; }
     if (url.pathname === "/auth/v1/logout") { res.writeHead(204); res.end(); return; }
+    if (url.pathname.startsWith("/storage/v1/object/")) {
+      const match = url.pathname.match(/^\/storage\/v1\/object\/(info|sign)\/teorema-pdfs\/(.+)$/);
+      if (!match) { res.writeHead(404); res.end("{}"); return; }
+      const [, action, key] = match;
+      if (action === "sign" && req.method === "GET") {
+        const ticket = signedDownloads.get(url.searchParams.get("token"));
+        if (!ticket || ticket.key !== key || ticket.expiresAt <= Date.now()) { res.writeHead(403); res.end('{"message":"Expired fixture URL"}'); return; }
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="${url.searchParams.get('download') || 'material.pdf'}"`);
+        res.setHeader("Cache-Control", "private, no-store");
+        const pdf = Buffer.alloc(100, 32); pdf.write("%PDF-1.7\nFixture download only\n%%EOF"); res.end(pdf); return;
+      }
+      assert.equal(token, serviceKey, "Storage metadata/signing must use server credentials");
+      const file = (await service(tx => tx.query("select f.size_bytes from product_files f join storage.objects o on o.bucket_id=f.bucket_id and o.name=f.object_key where f.object_key=$1", [key]))).rows[0];
+      if (!file) { res.writeHead(404); res.end('{"message":"Missing fixture object"}'); return; }
+      if (action === "info") { res.end(JSON.stringify({ size: Number(file.size_bytes), content_type: "application/pdf", cache_control: pdfCacheControl })); return; }
+      assert.equal(req.method, "POST"); assert.equal(body.expiresIn, 60);
+      const signedToken = crypto.randomUUID(); signedDownloads.set(signedToken, { key, expiresAt: Date.now() + 60000 });
+      res.end(JSON.stringify({ signedURL: `/object/sign/teorema-pdfs/${key}?token=${signedToken}` })); return;
+    }
     if (url.pathname.startsWith("/rest/v1/rpc/")) {
       assert.equal(token, serviceKey, "RPC must use server credentials");
       let value;
-      if (url.pathname.endsWith("/teorema_read_cart")) value = await service(async tx => (await tx.query("select teorema_read_cart($1) as value", [body.p_user_id])).rows[0].value);
+      if (url.pathname.endsWith("/teorema_read_library")) value = await service(async tx => (await tx.query("select teorema_read_library($1,$2) as value", [body.p_user_id, body.p_page])).rows[0].value);
+      else if (url.pathname.endsWith("/teorema_resolve_pdf")) value = await service(async tx => (await tx.query("select teorema_resolve_pdf($1,$2) as value", [body.p_user_id, body.p_product_id])).rows[0].value);
+      else if (url.pathname.endsWith("/teorema_read_cart")) value = await service(async tx => (await tx.query("select teorema_read_cart($1) as value", [body.p_user_id])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_sync_cart")) {
         value = await service(async tx => (await tx.query("select teorema_sync_cart($1,$2,$3,$4,$5,$6) as value", [body.p_user_id, body.p_operation_id, body.p_cart_id, body.p_revision, body.p_add_ids, body.p_remove_ids])).rows[0].value);
         if (dropResponse || droppedOperation === body.p_operation_id) {
@@ -100,7 +124,7 @@ try {
   const page = await context.newPage(), errors = [];
   page.setDefaultTimeout(60000);
   page.on("pageerror", error => errors.push(error.message));
-  page.on("requestfailed", req => console.error("Fixture request failed:", req.url(), req.failure()?.errorText));
+  page.on("requestfailed", req => console.error("Fixture request failed:", new URL(req.url()).pathname, req.failure()?.errorText));
   page.on("console", msg => { if (msg.type() === "error") console.error("Browser:", msg.text()); });
   page.on("request", req => { if (req.url().startsWith(api + "/auth/")) console.log("Local Auth request:", req.method(), new URL(req.url()).pathname); });
   page.on("response", res => { if (res.url().startsWith(api + "/auth/")) console.log("Local Auth response:", res.status(), new URL(res.url()).pathname); });
@@ -203,6 +227,10 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Order overflow ${width}`);
     if (width === 390 || width === 1440) await page.screenshot({ path: `.data/order-check/${width}.png`, fullPage: true });
   }
+  await page.getByRole("link", { name: "Meus materiais", exact: true }).click();
+  await page.waitForURL("**/meus-materiais"); await page.getByText("Aguardando liberação", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: /Baixar PDF:/ }).count(), 0);
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 403);
   await page.goto(origin + "/pedidos"); await page.getByText(saved.code, { exact: true }).waitFor();
   assert.equal((await context.request.get(origin + "/api/admin/orders")).status(), 403);
   await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("bob@example.test"); await ready();
@@ -307,10 +335,89 @@ try {
   await page.getByRole("button", { name: "Revogar acesso", exact: true }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Revogar acesso", exact: true }).isDisabled(), true);
   console.log("PASS stage 7: verified admin, payment checkbox, lost confirmation recovery after reload, one audit/no duplicate grants, all PDFs for correct customer, revoke/restore, unpublished access preserved, customer filter, cancel without grants, forged actor/origin/foreign grant rejected, responsive dashboard.");
+  // Stage 8: account -> own library -> server authorization -> short Storage link.
+  await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("alice@example.test"); await ready();
+  await page.goto(origin + "/perfil"); await page.locator('a[href="/meus-materiais"]').click();
+  await page.waitForURL("**/meus-materiais");
+  await page.getByRole("button", { name: "Baixar PDF: Material de estudo 1", exact: true }).waitFor();
+  assert.equal(await page.locator(".library-grid article").count(), 1);
+  const ownLibrary = await context.request.get(origin + "/api/library");
+  assert.equal(ownLibrary.status(), 200); assert.match(ownLibrary.headers()["cache-control"], /no-store/);
+  assert.doesNotMatch(await ownLibrary.text(), /object_key|bucket_id|sha256|reason|granted_by|cpf|token/);
+  const ticketResponse = await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } });
+  assert.equal(ticketResponse.status(), 200, ticketResponse.status() === 200 ? undefined : await ticketResponse.text()); assert.match(ticketResponse.headers()["cache-control"], /no-store/);
+  const ticket = await ticketResponse.json();
+  assert.equal(ticket.version, 1); assert.ok(Date.parse(ticket.expiresAt) - Date.now() <= 60000);
+  assert.equal((await context.request.get(ticket.url)).status(), 200);
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[2] } })).status(), 403);
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0], userId: users[2].id } })).status(), 400);
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: "https://other.test" }, data: { productId: ids[0] } })).status(), 400);
+  assert.equal((await context.request.get(origin + "/api/library/download")).status(), 405);
+  async function downloadFromCard(version) {
+    const transfer = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Baixar PDF: Material de estudo 1", exact: true }).click();
+    const downloaded = await transfer;
+    assert.equal(downloaded.suggestedFilename(), "Material-de-estudo-1.pdf");
+    assert.equal(await downloaded.failure(), null);
+    assert.match(page.url(), /\/meus-materiais$/);
+    await page.getByText(/Download solicitado/).waitFor();
+    assert.match(await page.locator(".library-grid").innerText(), new RegExp(`Versão ${version}`));
+  }
+  await downloadFromCard("1.0");
+  const updatedFile = crypto.randomUUID(), updatedKey = `products/${ids[0]}/${updatedFile}.pdf`;
+  await service(async tx => {
+    await tx.query("update product_files set is_current=false where product_id=$1", [ids[0]]);
+    await tx.query("insert into product_files(id,product_id,version,version_label,object_key,size_bytes,mime_type,sha256,validation_status,validated_at,is_current,uploaded_by) values($1,$2,2,'2.0',$3,100,'application/pdf',$4,'VALIDATED',now(),true,$5)", [updatedFile, ids[0], updatedKey, "b".repeat(64), users[0].id]);
+    await tx.query("insert into storage.objects(bucket_id,name) values('teorema-pdfs',$1)", [updatedKey]);
+  });
+  await page.getByRole("button", { name: "Atualizar biblioteca", exact: true }).click();
+  await page.getByText(/Versão 2.0/).waitFor(); await downloadFromCard("2.0");
+  const currentTicket = await (await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).json();
+  assert.ok(new URL(currentTicket.url).pathname.endsWith(updatedFile + ".pdf"));
+  const issued = signedDownloads.size; pdfCacheControl = "max-age=3600";
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 503);
+  assert.equal(signedDownloads.size, issued, "Unsafe cache must not receive a signed link"); pdfCacheControl = "max-age=0";
+  await db.query("delete from storage.objects where name=$1", [updatedKey]);
+  await page.getByRole("button", { name: "Atualizar biblioteca", exact: true }).click();
+  await page.getByText(/Você possui acesso, mas o arquivo está temporariamente indisponível/).waitFor();
+  assert.equal(await page.getByRole("button", { name: /Baixar PDF:/ }).count(), 0);
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 503);
+  await db.query("insert into storage.objects(bucket_id,name) values('teorema-pdfs',$1)", [updatedKey]);
+  await page.getByRole("button", { name: "Atualizar biblioteca", exact: true }).click();
+  await page.getByRole("button", { name: "Baixar PDF: Material de estudo 1", exact: true }).waitFor();
+  await service(tx => tx.query("select teorema_set_access_state($1,$2,'REVOGADO','Teste de autorização na biblioteca',$3)", [users[0].id, revoked, crypto.randomUUID()]));
+  await page.getByRole("button", { name: "Baixar PDF: Material de estudo 1", exact: true }).click();
+  const libraryError = page.locator('.library [role="alert"]');
+  await libraryError.waitFor(); assert.match(await libraryError.innerText(), /autorização ativa/);
+  assert.equal(await page.getByRole("button", { name: /Baixar PDF:/ }).count(), 0);
+  await page.getByRole("button", { name: "Atualizar biblioteca", exact: true }).click();
+  await page.getByText("Acesso revogado", { exact: true }).waitFor();
+  // An already issued bearer link is not recalled by revocation. Its TTL still applies.
+  assert.equal((await context.request.get(currentTicket.url)).status(), 200);
+  signedDownloads.get(new URL(currentTicket.url).searchParams.get("token")).expiresAt = Date.now() - 1;
+  assert.equal((await context.request.get(currentTicket.url)).status(), 403);
+  await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("bob@example.test"); await ready();
+  await page.goto(origin + "/meus-materiais");
+  await page.getByRole("button", { name: "Baixar PDF: Material de estudo 3", exact: true }).waitFor();
+  assert.equal(await page.locator(".library-grid article").count(), 2);
+  assert.equal(await page.getByText("Acesso revogado", { exact: true }).count(), 0);
+  await mkdir(".data/library-check", { recursive: true });
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Library overflow ${width}`);
+    if (width === 390 || width === 1440) await page.screenshot({ path: `.data/library-check/${width}.png`, fullPage: true });
+  }
+  assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex, nofollow');
+  assert.equal(await page.evaluate(() => [...Object.values(localStorage), ...Object.values(sessionStorage)].some(value => value.includes('/object/sign/'))), false);
+  await context.clearCookies();
+  assert.equal((await context.request.get(origin + "/api/library")).status(), 401);
+  await page.reload(); await page.waitForURL("**/login?next=**");
+  assert.equal(new URL(page.url()).searchParams.get("next"), "/meus-materiais");
+  console.log("PASS stage 8: pending/active/revoked library, profile/order links, private no-store API, own-session-only download, rejected forged identity/origin/GET, actual browser download, current version, missing object, unsafe cache blocked, stale-card revocation, 60s token expiry, no persisted URLs, account isolation, logout redirect, responsive 320/390/768/1440.");
   assert.deepEqual(errors, []);
   console.log("PASS stage 6: changed price requires review; lost committed response recovered as the same order; blocked popup fallback; persisted WhatsApp code/price; no grants; customer isolation; verified admin listing; responsive order pages.");
   console.log("PASS: visitor -> login/register links -> atomic merge -> reload -> lost response/retry -> price update -> unavailable/removal -> logout/login -> second-user isolation -> expired session -> confirmation callback. Responsive at 320/390/768/1440. No browser runtime errors.");
-  console.log("Real migration/RPC SQL on isolated PGlite; simulated Auth/REST only. No remote mutations or messages.");
+  console.log("Real migration/RPC SQL on isolated PGlite; simulated Auth/REST/Storage transport. No remote mutations or messages.");
 } catch (error) { console.error(output); throw error; }
 finally {
   await browser?.close();

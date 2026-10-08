@@ -20,11 +20,12 @@ Next.js + TypeScript + Supabase Auth/Postgres. O estilo usa CSS do projeto (não
 - /cadastro: valida CPF/telefone/senha na interface e API. Usa Supabase Auth.
 - /auth/callback e /auth/confirm: confirmação e sessão.
 - /login: vai ao perfil (ou admin autorizado); aceita apenas destinos internos permitidos.
-- /perfil, /admin, /carrinho, /pedidos: autenticação validada no servidor.
+- /perfil, /admin, /carrinho, /pedidos, /meus-materiais: autenticação validada no servidor.
 - /admin: listagem de usuários e nova gestão de produtos/PDFs preparada localmente. Ativação depende da migração, buckets e variável servidor; ver etapa 3. Cadastro antigo que publicava sem PDF desativado.
 - /materiais: produtos do banco, consultas paginadas, compra assistida via WhatsApp.
 - /carrinho: carrinho persistido por conta e revisão do pedido em prévia controlada; produção mantém o estado vazio protegido.
-- /pedidos e /pedidos/[id]: histórico e resumo persistido, com retomada do atendimento pelo WhatsApp. Gestão administrativa de liberações em prévia; biblioteca/download na etapa 8.
+- /pedidos e /pedidos/[id]: histórico e resumo persistido, com retomada do atendimento pelo WhatsApp e link para a biblioteca.
+- /meus-materiais: biblioteca por conta em prévia, estados pendente/ativo/revogado e download da versão atual via link privado de 60 segundos; produção permanece bloqueada.
 
 ## Banco / publicação
 Leia [docs/SECURITY.md](docs/SECURITY.md) antes de publicar.
@@ -45,7 +46,9 @@ Migrações `20261005004458_teorema_pdf_orders_access.sql`, `20261005004940_teor
 
 [Etapa 6](docs/ETAPA-6-PEDIDOS-WHATSAPP.md): revisão explícita, pedido transacional, recuperação após falha e mensagem baseada nos títulos/preços registrados. Usa a RPC da etapa 2 já aplicada; não há nova migração. Histórico privado disponível em prévia.
 
-[Etapa 7](docs/ETAPA-7-ADMIN-PEDIDOS-ACESSOS.md): aba administrativa de pedidos/acessos, filtros, conferência de pagamento, confirmação integral e idempotente, cancelamento e revogação/reliberação com motivo/auditoria. Disponível sob as mesmas flags de prévia do carrinho; produção não ativada. Usa RPCs existentes já verificadas no Supabase, sem nova migração. 58 testes e ensaio de navegador/API/SQL local aprovados; biblioteca/download e homologação real permanecem pendentes.
+[Etapa 7](docs/ETAPA-7-ADMIN-PEDIDOS-ACESSOS.md): aba administrativa de pedidos/acessos, filtros, conferência de pagamento, confirmação integral e idempotente, cancelamento e revogação/reliberação com motivo/auditoria. Disponível sob as mesmas flags de prévia do carrinho; produção não ativada. Usa RPCs existentes já verificadas no Supabase, sem nova migração. 58 testes e ensaio de navegador/API/SQL local aprovados nessa entrega; biblioteca/download acrescentados na etapa 8, homologação real pendente.
+
+[Etapa 8](docs/ETAPA-8-BIBLIOTECA-DOWNLOAD.md): biblioteca paginada, autorização a cada download, arquivo atual validado e URL temporária. 61 testes e ensaio de navegador/API/SQL local aprovados, com Auth/REST/Storage simulados. Migração `20261008020054_teorema_library_read.sql` aplicada/verificada no Supabase, dados preservados e smoke real somente leitura aprovado. Mesmas flags de prévia, sem ativação em Production. Homologação real na etapa 9.
 
 ## Testes de banco
 Os testes criam um PostgreSQL em memória (PGlite) com fixtures sintéticas de auth.users.

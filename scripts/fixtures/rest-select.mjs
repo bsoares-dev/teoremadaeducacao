@@ -3,7 +3,7 @@
 const fields = {
   profiles: "id,email,cpf,phone,created_at",
   orders: "id,code,user_id,status,total_amount,created_at,confirmed_at,confirmed_by,canceled_at,canceled_by,cancellation_reason",
-  order_items: "id,order_id,user_id,product_id,product_name,unit_price",
+  order_items: "id,order_id,user_id,product_id,product_name,unit_price,created_at",
   access_grants: "id,order_item_id,user_id,product_id,state,granted_by,granted_at,revoked_by,revoked_at,revocation_reason,created_at",
   admin_audit_events: "id,entity_id,actor_id,action,reason,created_at",
 };

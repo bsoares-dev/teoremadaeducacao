@@ -52,4 +52,11 @@ console.log("PostgREST service_role -> private Auth eligibility -> PDF access gu
 const rejected = await anonymous.rpc("teorema_resolve_pdf", { p_user_id: account.data.user.id, p_product_id: missingProduct });
 assert.equal(rejected.error?.code, "42501", "Anonymous RPC execution must remain denied");
 console.log("Anonymous PDF resolver execution: denied");
+const library = await service.rpc("teorema_read_library", { p_user_id: account.data.user.id, p_page: 1 });
+assert.equal(library.error, null, "Stage 8 library RPC unavailable");
+assert.ok(Array.isArray(library.data?.items) && library.data.items.length <= 20 && library.data.size === 20, "Library page contract failed");
+assert.doesNotMatch(JSON.stringify(library.data), /object_key|bucket_id|sha256|granted_by|cpf|token/, "Library must not expose delivery credentials");
+const libraryDenied = await anonymous.rpc("teorema_read_library", { p_user_id: account.data.user.id, p_page: 1 });
+assert.equal(libraryDenied.error?.code, "42501", "Anonymous library RPC must remain denied");
+console.log("Stage 8: paginated server-only library contract OK; anonymous execution denied");
 console.log("Read-only smoke test complete; no accounts, orders, uploads or grants created.");

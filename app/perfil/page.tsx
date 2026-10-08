@@ -1,7 +1,11 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { requireUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/auth-policy";
 import { SessionGuard, LogoutButton, RetryButton } from "@/app/components/session-controls";
+import { cartPreviewEnabled } from "@/lib/cart-contract";
+
+export const metadata: Metadata = { title: "Meu perfil | Teorema da Educação", robots: { index: false, follow: false } };
 
 export default async function PerfilPage() {
   const { user, supabase } = await requireUser("/perfil");
@@ -22,6 +26,7 @@ export default async function PerfilPage() {
       <div><dt>Cadastro</dt><dd>{new Date(profile.created_at || user.created_at).toLocaleDateString("pt-BR")}</dd></div>
     </dl>}
     <div className="profile-actions">
+      {cartPreviewEnabled(process.env) && <><Link className="account-button" href="/meus-materiais">Meus materiais ↗</Link><Link className="account-button secondary" href="/pedidos">Meus pedidos ↗</Link></>}
       <Link className="account-button" href="/carrinho">Ir para o carrinho ↗</Link>
       {isAdmin(user) && <Link className="account-button" href="/admin">Administração ↗</Link>}
       <Link className="account-button secondary" href="/">Voltar ao site</Link>

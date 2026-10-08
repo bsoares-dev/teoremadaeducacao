@@ -13,6 +13,13 @@ for (const path of ["/api/profile", "/api/admin/dashboard?section=users"]) {
   assert.equal(response.status, 401);
   assert.match(response.headers.get("cache-control") || "", /no-store/);
 }
+// The commercial flow remains gated in a production build, even with flags true.
+assert.equal((await get("/meus-materiais")).status, 404);
+for (const path of ["/api/library", "/api/library/download"]) {
+  const response = await get(path, path.endsWith("download") ? { method: "POST", headers: { origin: base, "content-type": "application/json" }, body: "{}" } : {});
+  assert.equal(response.status, 404); assert.match(response.headers.get("cache-control") || "", /no-store/);
+}
+console.log("Biblioteca e download: bloqueados em produção");
 const oldCookie = await get("/api/admin/dashboard?section=users", { headers: { cookie: "teorema_admin_session=admin.fake.fake" } });
 assert.equal(oldCookie.status, 401, "legacy cookie cannot authorize admin");
 assert.equal((await get("/api/admin/login", { method: "POST" })).status, 410);
@@ -27,7 +34,11 @@ const foreignOrigin = await get("/api/register", {
 });
 assert.equal(foreignOrigin.status, 400);
 const callback = await get("/auth/callback?next=https://other.example");
-assert.match(callback.headers.get("location") || "", /\/login\?confirmation=invalid$/);
+const callbackTarget = new URL(callback.headers.get("location") || "", base);
+assert.equal(callbackTarget.origin, new URL(base).origin);
+assert.equal(callbackTarget.pathname, "/login");
+assert.equal(callbackTarget.searchParams.get("confirmation"), "invalid");
+assert.equal(callbackTarget.searchParams.get("next"), "/carrinho", "External target must use the existing safe fallback");
 assert.equal((await get("/")).status, 200);
 const home = await (await get("/")).text();
 assert.match(home, /Fale conosco e escolha o/);

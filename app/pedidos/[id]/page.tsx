@@ -27,6 +27,6 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
     <p>{order.status === "AGUARDANDO_CONFIRMACAO" ? "Converse com a equipe pelo WhatsApp para combinar o pagamento. Abrir o aplicativo não envia a mensagem nem confirma a compra." : "Consulte abaixo os dados registrados do seu pedido. O status é atualizado pela equipe."}</p>
     <section className="order-lines" aria-label="Resumo do pedido"><ul>{order.items.map(i => <li key={i.id}><span>{i.name}<small>1 unidade · PDF</small></span><strong>{cartMoney(i.priceCents)}</strong></li>)}</ul><p className="order-review-total">Total registrado: {cartMoney(order.totalCents)}</p></section>
     <OrderActions order={order} />
-    <footer><RetryButton label="Atualizar status" /><Link href="/materiais">Continuar escolhendo</Link><Link href="/perfil">Meu perfil</Link></footer>
+    <footer><RetryButton label="Atualizar status" /><Link href="/meus-materiais">Meus materiais</Link><Link href="/materiais">Continuar escolhendo</Link><Link href="/perfil">Meu perfil</Link></footer>
   </main></SessionGuard>;
 }

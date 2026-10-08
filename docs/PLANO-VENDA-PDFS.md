@@ -2,7 +2,7 @@
 
 ## Documento de referência
 
-Versão 11, atualizada em 07/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapa 3 EM VALIDAÇÃO, com gravação de rascunho demonstrada pelo responsável em produção; etapas 4–7 implementadas em prévia local, EM VALIDAÇÃO integrada; etapas 8–10 PENDENTES. O responsável adiou o ensaio real de upload/publicação da etapa 3 e autorizou iniciar a etapa 7. Migração de carrinho aplicada e verificada no Supabase; pedidos e gestão de acessos reutilizam a estrutura e RPCs da etapa 2, sem nova migração. Commit/push autorizados como rotina ao concluir etapas. A integração Vercel retornou 403 na última consulta; não houve ativação do fluxo comercial.
+Versão 12, atualizada em 07/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapa 3 EM VALIDAÇÃO, com gravação de rascunho demonstrada pelo responsável em produção; etapas 4–8 implementadas em prévia local, EM VALIDAÇÃO integrada; etapas 9–10 PENDENTES. O responsável adiou o ensaio real de upload/publicação da etapa 3 e autorizou iniciar a etapa 8. Biblioteca privada e download temporário verificados localmente; consulta paginada aplicada/verificada no Supabase como `20261008020054`, sem alterar os dados. Commit/push autorizados como rotina ao concluir etapas. A integração Vercel retornou 403 na última consulta; não houve ativação do fluxo comercial.
 Este documento é a referência para comandos como “faça a etapa 4”. Manter a numeração estável; registrar mudanças de escopo e decisões aqui.
 O comando “faça a etapa 1” autorizou sua documentação e seus wireframes locais. Não altera aplicação, banco, Storage, Vercel ou autoriza publicação de recursos.
 
@@ -166,7 +166,7 @@ Aceite: comprador correto recebe acesso; demais clientes não; repetição não 
 
 ## Etapa 8 — Biblioteca e entrega privada dos PDFs
 
-Status: PENDENTE. Dependências: 2, 3, 7.
+Status: EM VALIDAÇÃO integrada; implementação de prévia local entregue. Dependências: 2, 3, 7; homologação real de upload/publicação da 3 continua adiada pelo responsável. [Entrega, limites e verificações](ETAPA-8-BIBLIOTECA-DOWNLOAD.md). Autorizada com “inicie a etapa 8” em 07/10/2026. Migração `20261008020054` aplicada/verificada no Supabase, sem alterar pedidos/liberações ou dados existentes.
 
 Entregas:
 - Área “Meus materiais” e histórico de pedidos integrados ao perfil, com estados pendente/liberado/revogado.
@@ -229,11 +229,19 @@ Aceite: fluxo publicado e validado no domínio real, admin consegue operá-lo e 
 | 5 | EM VALIDAÇÃO integrada | Carrinho por conta, preços, revisão e retries verificados localmente; migração aplicada/verificada; ensaio integrado real pendente |
 | 6 | EM VALIDAÇÃO integrada | Revisão, pedido persistido, recuperação, WhatsApp e histórico testados localmente; RPC remota existente reutilizada |
 | 7 | EM VALIDAÇÃO integrada | Pedidos, confirmação integral, cancelamento, revogação/reliberação e auditoria testados localmente; RPCs remotas existentes reutilizadas |
-| 8 | PENDENTE | Sem biblioteca privada |
+| 8 | EM VALIDAÇÃO integrada | Biblioteca, versão atual e download com autorização/URL de 60 segundos testados localmente; migração aplicada/verificada; homologação Storage/Auth real pendente |
 | 9 | PENDENTE | Aguardando fluxo integrado |
 | 10 | PENDENTE | Nenhuma publicação deste escopo autorizada |
 
 Referência: [Supabase Storage — buckets privados e links temporários](https://supabase.com/docs/guides/storage/buckets/fundamentals).
+
+### Revisão de 07/10/2026 — etapa 8
+
+- Área `/meus-materiais` vinculada ao perfil e pedidos; paginação, origem de compra, estados pendente/ativo/revogado e versão atual. Produto despublicado permanece disponível para comprador autorizado.
+- Sessão/UUID exclusivamente do servidor; autorização e arquivo revalidados antes da assinatura, URL de 60 segundos e cache de PDF sem prazo prolongado. Sem persistir links nem prometer DRM; revogação bloqueia novas emissões, não recolhe cópias/links já emitidos.
+- 61 testes aprovados e ensaio navegador → API → SQL/RLS local com Auth/REST/Storage simulados. Download nativo, atualização, objeto ausente, cache inseguro, acesso cruzado, revogação e expiração testados; quatro larguras sem overflow. Suíte serializada após falha nativa de JIT/Windows no modo paralelo.
+- Migração somente de leitura `20261008020054` aplicada/verificada no Supabase; 14 controles zerados, RPC exclusiva do servidor, RLS/bucket privado e contagens preservados. Smoke da API real aprovado. Nenhum pedido, arquivo, compra, mensagem ou liberação real criado.
+- Próxima etapa: 9 por comando do responsável; produção continua restrita até homologação e aceite.
 
 ### Revisão de 07/10/2026 — etapa 7
 
