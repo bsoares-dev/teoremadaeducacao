@@ -1,6 +1,6 @@
 # Etapa 9 — Homologação e segurança
 
-Data: 07/10/2026 (São Paulo). Status: EM VALIDAÇÃO — entrega parcial de hardening/validações concluída; ensaio real e infraestrutura pendentes, sem aceite comercial. Etapa 10 ADIADA até definição do domínio; não dispensada.
+Data: 08/10/2026 (São Paulo). Status: EM VALIDAÇÃO — entrega parcial de hardening/validações concluída; ensaio real e infraestrutura pendentes, sem aceite comercial. Etapa 10 ADIADA até definição do domínio; não dispensada. Acompanhamento: [pendências operacionais](PENDENCIAS-OPERACIONAIS.md).
 
 ## Autorizações e limites
 
@@ -29,7 +29,7 @@ Responsável autorizou ensaio no Supabase atual `urgzsaftoiebsjkgyhsg`, com regi
 | Banco real | 8 migrações anteriores preservadas; nona de limites aplicada. Sete controles novos com zero violações |
 | Dados antes/depois da migração | 1 perfil, 1 produto, 0 arquivos, 0 pedidos, 0 acessos e 0 contadores; preservados |
 | Dependências | npm audit: zero vulnerabilidades instaladas nessa data |
-| Ensaio real | Pré-check Auth recusou a credencial anterior (`invalid_credentials`). Nenhum produto/conta/pedido criado; sem alteração de senha |
+| Ensaio real | Em 08/10, login administrativo e UUID privado passaram. Upload não concluído. Três rascunhos de teste arquivados; zero contas sintéticas, pedidos, acessos e objetos; sem alteração de senha. Diagnóstico/recuperação documentados no checklist operacional |
 | API Supabase real | Smokes somente leitura de contratos/grants/elegibilidade/biblioteca aprovados; nenhum registro criado |
 | Advisors | Aviso de senhas vazadas desabilitadas; RLS sem política de cart_operations é bloqueio intencional servidor-only. 20 índices sem uso são informativos com tráfego mínimo; preservados |
 | Vercel | Integração 403. Build/deploy/smoke remoto não comprovados |
@@ -55,9 +55,9 @@ Manifesto privado `.data/etapa9-live/<run>/manifest.json`: somente IDs, verifica
 
 ## Pendências antes do aceite final
 
-1. Credencial atual e execução real completa: autorização já recebida; aguardando variável local do responsável. Não redefinir senha para contornar a recusa.
-2. Confirmação/recuperação por e-mail real, SMTP e callbacks. Contas sintéticas confirmadas pelo Admin API não provam entrega de e-mail.
-3. Reautorizar escopo Vercel para consultar deployment e testar Preview real/CSP/TUS. Push não é evidência de deploy bem-sucedido.
+1. Execução real completa: credencial local configurada e pré-check aprovado em 08/10; envio/validação de PDF ainda não passou. Não redefinir senha nem abrir permissões para contornar falhas.
+2. Confirmação/recuperação por e-mail real, SMTP e callbacks. Responsável escolheu aguardar domínio do Teorema em 08/10. Contas sintéticas confirmadas pelo Admin API não provam entrega de e-mail.
+3. Acesso Vercel: reconexão realizada pelo responsável, mas integração ainda responde 403; login oficial da CLI autorizado, conclusão a verificar. Consultar deployment e testar Preview real/CSP/TUS. Push não é evidência de deploy bem-sucedido.
 4. PostgreSQL real 17.6; Supabase anunciou 17.11 com correções. Pre-check não encontrou colunas ltree, extensão btree_gist, operadores próprios da aplicação ou funções com cifras legadas. Não é garantia de upgrade sem risco. Preparar backup, confirmar janela e executar atualização separadamente: [changelog](https://supabase.com/changelog/postgres-15-19-17-11-breaking-changes), [guia](https://supabase.com/docs/guides/platform/upgrading).
 5. Advisor de senhas vazadas desabilitadas; revisar política/MFA com o responsável sem contratar upgrade: [remediação](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
 6. Backup completo/recuperação de Auth e Storage, limites/CAPTCHA e configurações finais de publicação. Snapshot DPAPI da etapa 2 não cobre tudo.

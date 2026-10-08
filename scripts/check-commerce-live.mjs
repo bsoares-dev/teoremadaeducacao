@@ -25,7 +25,7 @@ const db = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY, clientOption
 const publicClient = () => createClient(url, key, clientOptions);
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : "playwright");
 const runId = randomUUID(), dir = `.data/etapa9-live/${runId}`;
-const manifest = { runId, project, products: [], users: [], orders: [], checks: [], cleanup: [], complete: false };
+const manifest = { runId, project, products: [], users: [], orders: [], checks: [], cleanup: [], network: [], complete: false };
 let stage = "preflight", browser, child, actor, adminPassword, adminClient;
 const save = async () => { await mkdir(dir, { recursive: true }); await writeFile(`${dir}/manifest.json`, JSON.stringify(manifest, null, 2)); };
 const pass = async label => { manifest.checks.push(label); await save(); console.log("PASS: " + label); };
@@ -59,12 +59,30 @@ async function login(page, email, password, target) {
   await Promise.race([page.waitForURL(origin + target), page.locator(".auth-feedback").waitFor().then(() => { throw new Error("Login unavailable; no credentials logged"); })]);
 }
 async function upload(page, kind, bytes, label) {
+  stage = `products/upload/${kind}/selection`;
   await page.getByLabel("Tipo de envio").selectOption(kind);
   if (kind === "PDF") await page.getByLabel("Identificação da versão").fill(label);
   await page.locator('input[type="file"]').setInputFiles({ name: kind === "PDF" ? "homologacao.pdf" : "homologacao.png", mimeType: kind === "PDF" ? "application/pdf" : "image/png", buffer: bytes });
-  const result = page.waitForResponse(res => /\/api\/admin\/products\/[^/]+\/uploads\/[^/]+$/.test(new URL(res.url()).pathname) && res.request().method() === "POST");
+  stage = `products/upload/${kind}/transfer`;
+  const result = Promise.race([
+    page.waitForResponse(res => /\/api\/admin\/products\/[^/]+\/uploads\/[^/]+$/.test(new URL(res.url()).pathname) && res.request().method() === "POST"),
+    // Next's development tools also contain alerts; only the catalogue's error
+    // is a failure of this operation. Do not treat framework toasts as uploads.
+    page.locator(".catalog-manager > .account-notice.error").waitFor({ state: "visible" }).then(async () => {
+      const message = await page.locator(".catalog-manager > .account-notice.error").textContent();
+      const code = /Envio interrompido/.test(message) ? "TUS_TRANSFER_INTERRUPTED"
+        : /temporariamente indisponível/.test(message) ? "SERVER_TEMPORARILY_UNAVAILABLE"
+        : /Formato ou origem/.test(message) ? "INPUT_ORIGIN_REJECTED"
+        : /Confira formato/.test(message) ? "CLIENT_FILE_REJECTED" : "OTHER_UPLOAD_UI_ERROR";
+      manifest.network.push({ boundary: "catalogue-error", code });
+      throw new Error(code);
+    }),
+  ]).then(response => ({ response }), error => ({ error }));
   await page.getByRole("button", { name: kind === "PDF" ? "Enviar e validar PDF" : "Enviar e validar capa", exact: true }).click();
-  const response = await result;
+  const outcome = await result;
+  if (outcome.error) throw outcome.error;
+  const response = outcome.response;
+  stage = `products/upload/${kind}/finalization`;
   assert.equal(response.status(), 200, "Actual upload/finalization status");
   const detail = await response.json();
   await page.getByRole("button", { name: "Salvar alterações", exact: true }).waitFor({ state: "visible" });
@@ -79,7 +97,7 @@ async function state(context, productId, value) {
 try {
   await save();
   // Password arrives over stdin (not argv, source, manifest or echoed terminal).
-  console.log("Awaiting existing administrator password on non-echoed stdin. No account settings will be changed.");
+  console.log("Using local administrator credential or non-echoed stdin. No account settings will be changed.");
   adminPassword = process.env.TEOREMA_TEST_ADMIN_PASSWORD;
   if (!adminPassword) {
     const muted = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
@@ -113,6 +131,20 @@ try {
   pages.forEach(page => { page.setDefaultTimeout(90000); page.on("pageerror", () => errors.push("pageerror"));
     page.on("console", message => { if (message.type() === "error" && /content security policy|violates the following/i.test(message.text())) policies.push("CSP violation"); }); });
   const [admin, alice, bob] = pages, [adminContext, aliceContext, bobContext] = contexts;
+  admin.on("pageerror", () => { if (manifest.network.length < 60) manifest.network.push({ boundary: "browser-runtime-error" }); });
+  // Never persist headers, request/response bodies, queries or signed URLs.
+  admin.on("response", response => {
+    const pathname = new URL(response.url()).pathname;
+    const boundary = pathname.startsWith("/storage/v1/upload/resumable") ? "TUS"
+      : /^\/api\/admin\/products\/[^/]+\/uploads$/.test(pathname) ? "reservation"
+      : /^\/api\/admin\/products\/[^/]+\/uploads\/[^/]+$/.test(pathname) ? "finalization" : null;
+    if (boundary && manifest.network.length < 60) manifest.network.push({ boundary, method: response.request().method(), status: response.status() });
+  });
+  admin.on("request", request => {
+    if (!new URL(request.url()).pathname.startsWith("/storage/v1/upload/resumable") || request.method() === "OPTIONS") return;
+    const signature = request.headers()["x-signature"];
+    if (manifest.network.length < 60) manifest.network.push({ boundary: "TUS-signature-format", present: Boolean(signature), segments: signature?.split(".").length || 0 });
+  });
   await login(admin, "bernardozsoares11@gmail.com", adminPassword, "/admin");
   adminPassword = undefined;
   await admin.getByRole("button", { name: "Produtos", exact: true }).click();
