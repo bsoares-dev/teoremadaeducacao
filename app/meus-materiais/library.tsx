@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowUpRight, BookOpen, Download, RefreshCw } from "lucide-react";
 import { libraryPage, libraryLabels, validateDownloadUrl, type LibraryPage } from "@/lib/library-contract";
 
 export default function Library() {
@@ -52,17 +53,17 @@ export default function Library() {
   }
 
   return <section className="library" aria-label="Sua biblioteca" aria-busy={loading}>
-    <div className="library-toolbar"><button className="account-button secondary" disabled={!!busy} onClick={() => { setRevision(v => v + 1); setNotice(""); }}>Atualizar biblioteca</button><Link href="/pedidos">Acompanhar pedidos</Link></div>
+    <div className="library-toolbar"><div><h2>Meus materiais</h2><span>{data ? `${data.total} ${data.total === 1 ? "material na sua biblioteca" : "materiais na sua biblioteca"}` : "Seu acervo de estudo"}</span></div><button className="account-button secondary" disabled={!!busy || loading} onClick={() => { setRevision(v => v + 1); setNotice(""); }}><RefreshCw size={15} aria-hidden="true" />Atualizar biblioteca</button></div>
     {error && <p className="account-notice error" role="alert">{error}</p>}{notice && <p className="account-notice success" role="status">{notice}</p>}
-    {loading ? <p role="status">Consultando seus materiais…</p> : data && <>
-      {!data.items.length && <div className="library-empty"><p className="eyebrow">Novas possibilidades</p><h2>{data.total ? "Nenhum material nesta página." : "Sua biblioteca começa com uma escolha."}</h2><p>Os materiais dos seus pedidos aparecerão aqui. O acesso é liberado depois da conferência da compra pela equipe.</p><Link className="account-button" href="/materiais">Conhecer materiais</Link></div>}
+    {loading ? <div className="library-loading"><p role="status">Consultando seus materiais…</p><div className="library-skeletons" aria-hidden="true">{[1, 2, 3].map(key => <div key={key}><span /><i /><i /></div>)}</div></div> : data && <>
+      {!data.items.length && <div className="library-empty student-empty"><span className="student-icon"><BookOpen size={26} strokeWidth={1.5} aria-hidden="true" /></span><p className="eyebrow">Novas possibilidades</p><h2>{data.total ? "Nenhum material nesta página." : "Sua biblioteca começa com uma escolha."}</h2><p>Os materiais dos seus pedidos aparecerão aqui. O acesso é liberado depois da conferência da compra pela equipe.</p><Link className="account-button" href="/materiais">Conhecer materiais<ArrowUpRight size={16} aria-hidden="true" /></Link></div>}
       <div className="library-grid">{data.items.map(item => <article key={item.productId}>
-        {item.imageUrl ? <div className="library-image"><Image src={item.imageUrl} alt={`Capa de ${item.name}`} fill sizes="(max-width: 600px) 100vw, 33vw" /></div> : <div className="library-cover" aria-hidden="true"><span>TE</span><small>Conhecimento com propósito</small></div>}
+        {item.imageUrl ? <div className="library-image"><Image src={item.imageUrl} alt={`Capa de ${item.name}`} fill sizes="(max-width: 600px) 90vw, (max-width: 1200px) 40vw, 28vw" /></div> : <div className="library-cover" aria-hidden="true"><BookOpen size={32} strokeWidth={1} /><small>TEOREMA<br /><em>da Educação</em></small><span>Material de estudo · PDF</span></div>}
         <div className="library-card"><p className={`library-state ${item.state.toLowerCase()}`}>{libraryLabels[item.state]}</p><h2>{item.name}</h2>
           <p>{item.state === "PENDENTE" ? "A equipe ainda precisa confirmar a compra para liberar seu material." : item.state === "REVOGADO" ? "Este material não possui autorização ativa. Fale com a equipe para conferir seu acesso." : !item.available ? "Você possui acesso, mas o arquivo está temporariamente indisponível. Atualize ou fale com a equipe." : "Pronto para o seu próximo passo."}</p>
           {item.state === "ATIVO" && item.version && <p className="library-meta">Versão {item.versionLabel} · {((item.sizeBytes || 0) / 1024 / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} MiB</p>}
           <p className="library-meta">{item.state === "ATIVO" ? "Liberado em" : "Registro em"} {new Date(item.updatedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
-          <div className="library-card-actions">{item.state === "ATIVO" && item.available && <button className="account-button" disabled={!!busy || loading} onClick={() => download(item.productId)} aria-label={`Baixar PDF: ${item.name}`}>{busy === item.productId ? "Preparando…" : "Baixar PDF"}</button>}<Link href={`/pedidos/${item.orderId}`}>Ver pedido {item.code}</Link></div>
+          <div className="library-card-actions">{item.state === "ATIVO" && item.available && <button className="account-button" disabled={!!busy || loading} onClick={() => download(item.productId)} aria-label={`Baixar PDF: ${item.name}`}><Download size={16} aria-hidden="true" />{busy === item.productId ? "Preparando…" : "Baixar PDF"}</button>}<Link href={`/pedidos/${item.orderId}`}>Ver pedido {item.code}<ArrowUpRight size={14} aria-hidden="true" /></Link></div>
         </div></article>)}</div>
       {data.total > 0 && <nav className="library-pagination" aria-label="Páginas de materiais"><button disabled={page === 1 || !!busy || loading} onClick={() => setPage(v => v - 1)}>Anterior</button><span>Página {page} de {Math.ceil(data.total / 20)}</span><button disabled={page * 20 >= data.total || !!busy || loading} onClick={() => setPage(v => v + 1)}>Próxima</button></nav>}
     </>}

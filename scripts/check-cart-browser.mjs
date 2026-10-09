@@ -122,6 +122,8 @@ try {
   }
   browser = await chromium.launch({ headless: true, channel: "msedge" });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  // Font CDN availability must not block isolated acceptance. Exercise fallbacks.
+  await context.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, route => route.abort());
   const page = await context.newPage(), errors = [];
   page.setDefaultTimeout(60000);
   page.on("pageerror", error => errors.push(error.message));
@@ -143,6 +145,21 @@ try {
     await page.getByRole("button", { name: "Atualizar e recuperar seleção", exact: true }).waitFor();
   }
   async function ready() { await page.waitForFunction(() => { const b = [...document.querySelectorAll('button')].find(b => b.textContent === 'Atualizar e recuperar seleção'); return b && !b.disabled && (document.querySelector('.pdf-cart-empty') || document.querySelector('.pdf-cart-layout')); }); }
+  async function captureStudentArea(name, activeHref) {
+    assert.equal(await page.getByRole("main").count(), 1, "One content landmark per student page");
+    assert.equal(await page.getByRole("heading", { level: 1 }).count(), 1, "One page title");
+    assert.equal(await page.locator('.student-nav a[aria-current="page"]').getAttribute("href"), activeHref);
+    await mkdir(".data/student-check", { recursive: true });
+    for (const width of [320, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name} overflow ${width}`);
+      if (width === 390 || width === 1440) await page.screenshot({ path: `.data/student-check/${name}-${width}.png`, fullPage: true });
+    }
+    await page.locator(".student-skip").focus();
+    assert.equal(await page.locator(".student-skip").evaluate(el => el.getBoundingClientRect().top >= 0), true, "Visible keyboard skip link");
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => document.activeElement?.id === "student-content");
+  }
   await page.goto(origin + "/materiais");
   await page.getByRole("button", { name: "Adicionar ao carrinho: Material de estudo 1", exact: true }).click();
   await page.getByText("1 material selecionado", { exact: true }).waitFor();
@@ -218,7 +235,7 @@ try {
   assert.equal(saved.status, "AGUARDANDO_CONFIRMACAO");
   assert.equal((await db.query("select count(*)::int as n from orders")).rows[0].n, 1);
   assert.equal((await db.query("select count(*)::int as n from access_grants")).rows[0].n, 0);
-  const wa = page.locator('a[href^="https://wa.me/"]');
+  const wa = page.locator('.order-actions a[href^="https://wa.me/"]');
   await wa.waitFor();
   assert.match(new URL(await wa.getAttribute("href")).searchParams.get("text"), /42,34/);
   assert.match(new URL(await wa.getAttribute("href")).searchParams.get("text"), new RegExp(saved.code));
@@ -233,6 +250,7 @@ try {
   assert.equal(await page.getByRole("button", { name: /Baixar PDF:/ }).count(), 0);
   assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 403);
   await page.goto(origin + "/pedidos"); await page.getByText(saved.code, { exact: true }).waitFor();
+  await captureStudentArea("orders", "/pedidos");
   assert.equal((await context.request.get(origin + "/api/admin/orders")).status(), 403);
   await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("bob@example.test"); await ready();
   const denied = await page.goto(origin + "/pedidos/" + saved.id); assert.equal(denied.status(), 404);
@@ -338,7 +356,12 @@ try {
   console.log("PASS stage 7: verified admin, payment checkbox, lost confirmation recovery after reload, one audit/no duplicate grants, all PDFs for correct customer, revoke/restore, unpublished access preserved, customer filter, cancel without grants, forged actor/origin/foreign grant rejected, responsive dashboard.");
   // Stage 8: account -> own library -> server authorization -> short Storage link.
   await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("alice@example.test"); await ready();
-  await page.goto(origin + "/perfil"); await page.locator('a[href="/meus-materiais"]').click();
+  await page.goto(origin + "/perfil");
+  await page.getByRole("heading", { name: "Minha conta", exact: true }).waitFor();
+  assert.equal(await page.locator(".student-profile-data dd").first().innerText(), "alice@example.test");
+  assert.equal(await page.locator('.student-main a[href="/admin"]').count(), 0, "Customer does not see admin shortcut");
+  await captureStudentArea("profile", "/perfil");
+  await page.getByRole("navigation", { name: "Navegação do aluno", exact: true }).getByRole("link", { name: "Meus materiais", exact: true }).click();
   await page.waitForURL("**/meus-materiais");
   await page.getByRole("button", { name: "Baixar PDF: Material de estudo 1", exact: true }).waitFor();
   assert.equal(await page.locator(".library-grid article").count(), 1);
@@ -401,6 +424,7 @@ try {
   await page.goto(origin + "/meus-materiais");
   await page.getByRole("button", { name: "Baixar PDF: Material de estudo 3", exact: true }).waitFor();
   assert.equal(await page.locator(".library-grid article").count(), 2);
+  await captureStudentArea("library", "/meus-materiais");
   assert.equal(await page.getByText("Acesso revogado", { exact: true }).count(), 0);
   await mkdir(".data/library-check", { recursive: true });
   for (const width of [320, 390, 768, 1440]) {

@@ -4,8 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShoppingCart, Trash2, BookOpen } from "lucide-react";
-import { LogoutButton } from "@/app/components/session-controls";
+import { ShoppingCart, Trash2, BookOpen, ArrowUpRight, RefreshCw } from "lucide-react";
 import { SELECTION_KEY, parseSelection, serializeSelection } from "@/lib/catalog-selection";
 import { cartMoney, cartSnapshot, cartResult, cartPendingKey, parsePending, remainingSelection, type CartMutation, type CartSnapshot, type CartResult } from "@/lib/cart-contract";
 import { checkoutInput, orderPendingKey, parseOrderPending, orderSnapshot, orderWhatsApp, type OrderInput } from "@/lib/order-contract";
@@ -141,9 +140,8 @@ export default function Cart({ userId }: { userId: string }) {
     } catch { setError("Não foi possível atualizar a seleção neste navegador."); }
   }
 
-  return <main className="pdf-cart-page">
-    <header className="pdf-cart-header"><Link href="/" className="materials-brand">Teorema <em>da Educação</em></Link><Link href="/materiais">Continuar escolhendo ↗</Link></header>
-    <section className="pdf-cart-heading"><p className="eyebrow blue-text">Sua seleção</p><h1>Seu próximo passo <em>começa aqui.</em></h1><p>Revise seus materiais. Seu carrinho fica salvo na sua conta para você continuar quando quiser.</p></section>
+  return <div className="pdf-cart-page">
+    <section className="pdf-cart-heading student-page-heading"><p className="eyebrow">Sua seleção</p><h1>Meu <em>carrinho.</em></h1><p>Revise seus materiais. Seu carrinho fica salvo na sua conta para você continuar quando quiser.</p><Link className="student-cart-continue" href="/materiais">Continuar escolhendo<ArrowUpRight size={15} aria-hidden="true" /></Link></section>
     <div className="pdf-cart-feedback" aria-live="polite" role="status">{busy ? "Conferindo seu carrinho…" : message}</div>
     {error && <div className="pdf-cart-notice" role="alert">{error} <button disabled={busy} onClick={() => run()}>Tentar novamente</button></div>}
     {rejected.length > 0 && <div className="pdf-cart-notice"><strong>Alguns materiais não foram adicionados.</strong>
@@ -165,7 +163,7 @@ export default function Cart({ userId }: { userId: string }) {
       {cart.hasBlockedItems && <p>Materiais indisponíveis ou já adquiridos não entram no total. Remova-os antes de continuar.</p>}
       <button disabled={busy || hasPending || pendingOrder || cart.hasBlockedItems || !!error} onClick={() => setReview(cart)}>Revisar pedido</button><p className="pdf-cart-preview">Prévia de atendimento. Você revisará os valores antes de registrar o pedido. O pagamento será combinado pelo WhatsApp; nenhum PDF é liberado automaticamente.</p>
     </aside></div> : null}
-    <footer className="pdf-cart-footer"><button disabled={busy} onClick={() => run()}>Atualizar e recuperar seleção</button><Link href="/pedidos">Meus pedidos</Link><Link href="/perfil">Meu perfil</Link><LogoutButton /></footer>
+    <footer className="pdf-cart-footer"><button disabled={busy} onClick={() => run()}><RefreshCw size={15} aria-hidden="true" />Atualizar e recuperar seleção</button></footer>
     <dialog ref={dialog} className="order-review" aria-labelledby="review-title" onCancel={event => { if (busy) event.preventDefault(); else setReview(null); }}>
       {review && <><p className="eyebrow">Confira antes de continuar</p><h2 id="review-title">Seu pedido, em detalhes.</h2>
         <ul>{review.items.map(i => <li key={i.id}><span>{i.name}</span><strong>{cartMoney(i.priceCents)}</strong></li>)}</ul>
@@ -174,5 +172,5 @@ export default function Cart({ userId }: { userId: string }) {
         <button className="order-primary" disabled={busy} onClick={confirmOrder}>{busy ? "Registrando…" : "Registrar pedido e falar no WhatsApp"}</button>
         <button className="order-secondary" disabled={busy} onClick={() => setReview(null)}>Voltar ao carrinho</button></>}
     </dialog>
-  </main>;
+  </div>;
 }

@@ -24,3 +24,48 @@
 .order-actions textarea { display: block; width: 100%; min-height: 200px; padding: 12px; margin: 12px 0; font: inherit; }
 :is(.orders-page,.order-review) :is(button,a,textarea):focus-visible { outline: 3px solid #195681; outline-offset: 4px; }
 .order-review button:disabled { opacity: .6; cursor: default; }
+
+.student-orders .order-history { gap: 12px; }
+.student-orders .order-history a { display: grid; grid-template-columns: 44px minmax(130px, 1fr) auto auto auto; align-items: center; gap: 20px; border-color: #e6e1d8; padding: 24px; background: #fffefa; border-radius: 12px; transition: border-color .2s; }
+.student-orders .order-history a:hover { border-color: #b1a28b; }
+.order-history-icon, .order-item-icon { display: grid; place-items: center; width: 44px; height: 44px; background: #f0ece4; border-radius: 10px; color: #807058; }
+.order-history-info { min-width: 0; }
+.order-history-info strong { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.order-history-info small { display: block; color: #65727e; font-size: 11px; margin-top: 5px; }
+.order-status-badge { display: inline-flex; align-items: center; gap: 7px; width: fit-content; padding: 5px 11px; font-size: 10px; background: #f4ecdc; color: #7c5a24; border-radius: 20px; line-height: 1.6; }
+.order-status-badge::before { content: ""; width: 5px; height: 5px; background: currentColor; border-radius: 50%; flex-shrink: 0; }
+.order-status-badge.confirmado { background: #edf4ee; color: #365f45; }
+.order-status-badge.cancelado { background: #faeeeb; color: #8b4138; }
+.order-history-price { font-size: 14px; font-weight: 500; white-space: nowrap; }
+.order-history-action { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #65727e; white-space: nowrap; }
+.student-pagination { display: flex; align-items: center; justify-content: center; gap: 20px; margin-top: 30px; font-size: 12px; }
+.student-back-link { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #65727e; min-height: 44px; margin: -10px 0 18px; }
+.student-order-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 22px; margin-top: 24px; align-items: start; }
+.student-orders .order-lines, .student-order-followup { margin: 0; padding: 26px; border: 1px solid #e6e1d8; border-radius: 12px; background: #fffefa; min-width: 0; }
+.student-orders .order-lines h2 { font: 500 25px/1.3 "Playfair Display", Georgia, serif; margin: 0 0 14px; letter-spacing: -.02em; }
+.student-orders .order-lines li { align-items: center; gap: 14px; font-size: 13px; }
+.student-orders .order-lines li > span:nth-child(2) { flex: 1; min-width: 0; }
+.student-orders .order-lines small { font-size: 10px; margin-top: 5px; }
+.student-orders .order-lines .order-review-total { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 12px; font-weight: 400; color: #65727e; margin: 26px 0 0; }
+.student-orders .order-review-total strong { font-size: 22px; color: #0f2840; }
+.student-order-followup .order-actions { padding: 0; margin: 0; border: 0; }
+.student-order-followup h2 { font: 500 25px/1.3 "Playfair Display", Georgia, serif; margin: 0 0 14px; }
+.student-order-followup p { color: #65727e; font-size: 12px; line-height: 1.8; }
+.student-order-followup .order-primary, .student-order-followup .order-secondary { width: 100%; border-radius: 8px; font-size: 12px; text-align: center; padding: 13px 16px; margin: 6px 0; }
+.student-order-followup .order-secondary { border-color: #d4d5d4; }
+.student-order-followup .order-footnote { font-size: 10px; }
+.student-order-followup textarea { min-height: 180px; border: 1px solid #d4d5d4; border-radius: 8px; font-size: 12px; }
+.student-order-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 22px; margin-top: 28px; font-size: 12px; }
+.student-area .order-review { border-radius: 14px; border-color: #e6e1d8; box-shadow: 0 24px 80px #0f284033; }
+.student-area .order-review .order-primary, .student-area .order-review .order-secondary { font-size: 12px; border-radius: 8px; }
+@media (max-width: 1200px) { .student-orders .order-history a { grid-template-columns: 44px minmax(130px, 1fr) auto auto; gap: 16px; } .order-history-action { grid-column: 2 / -1; } }
+@media (max-width: 950px) { .student-order-layout { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .student-orders .order-history a { grid-template-columns: 40px minmax(0, 1fr) auto; padding: 20px; gap: 14px; }
+  .order-history-icon { width: 40px; height: 40px; }
+  .student-orders .order-history .order-status-badge { grid-row: 2; grid-column: 2 / -1; }
+  .order-history-action { grid-row: 3; }
+  .student-orders .order-lines, .student-order-followup { padding: 22px; }
+  .student-orders .order-item-icon { display: none; }
+  .student-orders .order-lines li { font-size: 12px; }
+}
