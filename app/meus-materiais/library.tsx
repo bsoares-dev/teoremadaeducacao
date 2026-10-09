@@ -6,15 +6,21 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, BookOpen, Download, RefreshCw } from "lucide-react";
 import { libraryPage, libraryLabels, validateDownloadUrl, type LibraryPage } from "@/lib/library-contract";
+import LibraryLoading from "./library-loading";
 
-export default function Library() {
+export default function Library({ initialData = null, initialError = "" }: { initialData?: LibraryPage | null; initialError?: string }) {
   const router = useRouter();
   const [page, setPage] = useState(1), [revision, setRevision] = useState(0);
-  const [data, setData] = useState<LibraryPage | null>(null), [loading, setLoading] = useState(true);
-  const [error, setError] = useState(""), [notice, setNotice] = useState(""), [busy, setBusy] = useState<string | null>(null);
+  const [data, setData] = useState<LibraryPage | null>(initialData), [loading, setLoading] = useState(!initialData && !initialError);
+  const [error, setError] = useState(initialError), [notice, setNotice] = useState(""), [busy, setBusy] = useState<string | null>(null);
   const working = useRef(false), mounted = useRef(false), downloadController = useRef<AbortController | null>(null);
+  const initialPage = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; downloadController.current?.abort(); }; }, []);
   useEffect(() => {
+    // Server streams the initial page. Manual refresh/pagination still use the
+    // authenticated, rate-limited API and never trust card state for downloads.
+    if (page !== 1 || revision !== 0) initialPage.current = false;
+    if (initialPage.current && (initialData || initialError)) return;
     const controller = new AbortController(); setLoading(true); setData(null); setError("");
     void fetch(`/api/library?page=${page}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       if (response.status === 401) { router.replace("/login?next=/meus-materiais"); return; }
@@ -26,7 +32,7 @@ export default function Library() {
     }).catch(cause => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Falha de conexão."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [page, revision, router]);
+  }, [page, revision, router, initialData, initialError]);
 
   async function download(productId: string) {
     if (working.current) return;
@@ -55,7 +61,7 @@ export default function Library() {
   return <section className="library" aria-label="Sua biblioteca" aria-busy={loading}>
     <div className="library-toolbar"><div><h2>Meus materiais</h2><span>{data ? `${data.total} ${data.total === 1 ? "material na sua biblioteca" : "materiais na sua biblioteca"}` : "Seu acervo de estudo"}</span></div><button className="account-button secondary" disabled={!!busy || loading} onClick={() => { setRevision(v => v + 1); setNotice(""); }}><RefreshCw size={15} aria-hidden="true" />Atualizar biblioteca</button></div>
     {error && <p className="account-notice error" role="alert">{error}</p>}{notice && <p className="account-notice success" role="status">{notice}</p>}
-    {loading ? <div className="library-loading"><p role="status">Consultando seus materiais…</p><div className="library-skeletons" aria-hidden="true">{[1, 2, 3].map(key => <div key={key}><span /><i /><i /></div>)}</div></div> : data && <>
+    {loading ? <LibraryLoading /> : data && <>
       {!data.items.length && <div className="library-empty student-empty"><span className="student-icon"><BookOpen size={26} strokeWidth={1.5} aria-hidden="true" /></span><p className="eyebrow">Novas possibilidades</p><h2>{data.total ? "Nenhum material nesta página." : "Sua biblioteca começa com uma escolha."}</h2><p>Os materiais dos seus pedidos aparecerão aqui. O acesso é liberado depois da conferência da compra pela equipe.</p><Link className="account-button" href="/materiais">Conhecer materiais<ArrowUpRight size={16} aria-hidden="true" /></Link></div>}
       <div className="library-grid">{data.items.map(item => <article key={item.productId}>
         {item.imageUrl ? <div className="library-image"><Image src={item.imageUrl} alt={`Capa de ${item.name}`} fill sizes="(max-width: 600px) 90vw, (max-width: 1200px) 40vw, 28vw" /></div> : <div className="library-cover" aria-hidden="true"><BookOpen size={32} strokeWidth={1} /><small>TEOREMA<br /><em>da Educação</em></small><span>Material de estudo · PDF</span></div>}

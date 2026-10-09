@@ -14,7 +14,7 @@
 .commerce-manager :is(p,small,li) { overflow-wrap: anywhere; line-height: 1.6; }
 .commerce-detail { padding: clamp(20px,3vw,36px); margin-top: 36px; border: 1px solid #93846c; background: #fffdfa; }
 .commerce-detail-heading { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 16px; }
-.commerce-detail h3, .commerce-dialog h3 { font: 400 clamp(28px,3vw,36px)/1.2 "Playfair Display",Georgia,serif; margin: 18px 0; }
+.commerce-detail h3, .commerce-dialog h3 { font: 400 clamp(28px,3vw,36px)/1.2 var(--font-playfair, "Playfair Display"),Georgia,serif; margin: 18px 0; }
 .commerce-items { list-style: none; padding: 0; }
 .commerce-items li { padding: 24px 0; border-block-end: 1px solid #d4cbbd; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 24px; }
 .commerce-total { font-size: 22px; font-weight: 600; }

@@ -1,26 +1,42 @@
 // Next + real migration/RPC SQL in PGlite. Auth/REST/Storage transport is local only.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
+import { generateKeyPairSync, sign } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { cartDatabase } from "./fixtures/cart-database.mjs";
 import { fixtureSelect, fixtureTables } from "./fixtures/rest-select.mjs";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : "playwright");
+const productionBuild = process.env.TEOREMA_BROWSER_PRODUCTION === "true";
+// Production CSP requires HTTPS even in this isolated transport. Trust only
+// the explicitly supplied test certificate in the Next child, never disable TLS.
+const transportServer = productionBuild ? createHttpsServer.bind(null, {
+  cert: await readFile(process.env.TEOREMA_FIXTURE_TLS_CERT),
+  key: await readFile(process.env.TEOREMA_FIXTURE_TLS_KEY),
+}) : createServer;
 const { db, users, ids, service } = await cartDatabase();
-const origin = "http://localhost:3105", api = "http://127.0.0.1:54142", serviceKey = "local-service-fixture";
+const origin = "http://localhost:3105", api = `${productionBuild ? "https" : "http"}://127.0.0.1:54142`, serviceKey = "local-service-fixture";
+const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+const jwk = { ...publicKey.export({ format: "jwk" }), kid: "fixture-signing-key", alg: "ES256", use: "sig" };
 const sessions = users.map(user => {
   const record = { ...user, aud: "authenticated", role: "authenticated", email_confirmed_at: new Date().toISOString(), app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString(), is_anonymous: false };
   const exp = Math.floor(Date.now() / 1000) + 7200;
-  return { access_token: `${Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url")}.${Buffer.from(JSON.stringify({ sub: user.id, exp, role: "authenticated", aud: "authenticated" })).toString("base64url")}.local-fixture`, refresh_token: "local-refresh", expires_at: exp, expires_in: 7200, token_type: "bearer", user: record };
+  const payload = `${Buffer.from(JSON.stringify({ alg: "ES256", typ: "JWT", kid: jwk.kid })).toString("base64url")}.${Buffer.from(JSON.stringify({ sub: user.id, exp, iss: api + "/auth/v1", role: "authenticated", aud: "authenticated" })).toString("base64url")}`;
+  const signature = sign("sha256", Buffer.from(payload), { key: privateKey, dsaEncoding: "ieee-p1363" }).toString("base64url");
+  return { access_token: `${payload}.${signature}`, refresh_token: "local-refresh", expires_at: exp, expires_in: 7200, token_type: "bearer", user: record };
 });
+let authReads = 0;
+let authDelayMs = 0;
+const revokedSessions = new Set();
 let dropResponse = false, droppedOperation = null;
 let dropOrderResponse = false;
 let dropDecisionResponse = false;
 const signedDownloads = new Map();
 let pdfCacheControl = "max-age=0";
-const fixture = createServer(async (req, res) => {
+const fixture = transportServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Access-Control-Allow-Headers", "authorization,apikey,content-type,x-client-info,x-supabase-api-version");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
@@ -30,8 +46,12 @@ const fixture = createServer(async (req, res) => {
   let text = ""; for await (const chunk of req) text += chunk;
   const body = text ? JSON.parse(text) : {};
   try {
+    if (url.pathname === "/auth/v1/.well-known/jwks.json") { res.end(JSON.stringify({ keys: [jwk] })); return; }
     if (url.pathname === "/auth/v1/user") {
-      res.writeHead(session ? 200 : 401); res.end(JSON.stringify(session?.user || { message: "No session", code: "session_not_found" })); return;
+      authReads++;
+      if (authDelayMs) await new Promise(resolve => setTimeout(resolve, authDelayMs));
+      const active = session && !revokedSessions.has(session.user.id);
+      res.writeHead(active ? 200 : 401); res.end(JSON.stringify(active ? session.user : { message: "No session", code: "session_not_found" })); return;
     }
     if (url.pathname === "/auth/v1/token") {
       const selected = body.auth_code ? sessions[1] : sessions.find(session => session.user.email === body.email);
@@ -107,22 +127,36 @@ const fixture = createServer(async (req, res) => {
   } catch (error) { res.writeHead(error.code ? 400 : 500); res.end(JSON.stringify({ code: error.code || "FIXTURE", message: error.message })); }
 });
 await new Promise(resolve => fixture.listen(54142, "127.0.0.1", resolve));
-const child = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "--hostname", "127.0.0.1", "--port", "3105"], {
-  windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, NODE_ENV: "development", VERCEL_ENV: "preview",
+const fixtureEnv = { ...process.env, NODE_ENV: productionBuild ? "production" : "development", VERCEL_ENV: "preview",
+    ...(productionBuild ? { NODE_EXTRA_CA_CERTS: process.env.TEOREMA_FIXTURE_TLS_CERT } : {}),
     TEOREMA_CATALOG_SELECTION_ENABLED: "true", TEOREMA_CART_ENABLED: "true", NEXT_PUBLIC_SUPABASE_URL: api,
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "local-public-fixture", SUPABASE_SERVICE_ROLE_KEY: serviceKey },
-});
-let output = "", browser;
-child.stdout.on("data", chunk => { output = (output + chunk.toString()).slice(-7000); });
-child.stderr.on("data", chunk => { output = (output + chunk.toString()).slice(-7000); });
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "local-public-fixture", SUPABASE_SERVICE_ROLE_KEY: serviceKey };
+let output = "", browser, child;
 try {
+  if (productionBuild) {
+    console.log("Building production Next runtime with isolated test credentials and preview-only commerce flags.");
+    child = spawn(process.execPath, ["node_modules/next/dist/bin/next", "build"], {
+      windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: fixtureEnv,
+    });
+    child.stdout.on("data", chunk => { process.stdout.write(chunk); output = (output + chunk.toString()).slice(-7000); });
+    child.stderr.on("data", chunk => { process.stderr.write(chunk); output = (output + chunk.toString()).slice(-7000); });
+    const code = await new Promise((resolve, reject) => { child.once("error", reject); child.once("exit", resolve); });
+    assert.equal(code, 0, "Isolated production build must pass");
+    output = "";
+  }
+  child = spawn(process.execPath, ["node_modules/next/dist/bin/next", ...(productionBuild ? ["start"] : ["dev", "--webpack"]), "--hostname", "127.0.0.1", "--port", "3105"], {
+    windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: fixtureEnv,
+  });
+  child.stdout.on("data", chunk => { output = (output + chunk.toString()).slice(-7000); });
+  child.stderr.on("data", chunk => { output = (output + chunk.toString()).slice(-7000); });
   for (let i = 0; i < 120 && !output.includes("Ready in"); i++) {
     if (child.exitCode !== null) throw new Error(output);
     await new Promise(resolve => setTimeout(resolve, 500));
   }
   browser = await chromium.launch({ headless: true, channel: "msedge" });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
-  // Font CDN availability must not block isolated acceptance. Exercise fallbacks.
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, ignoreHTTPSErrors: productionBuild });
+  // Block external font transport in isolated tests; optimized pages must load
+  // the original families from self-hosted assets, asserted below.
   await context.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, route => route.abort());
   const page = await context.newPage(), errors = [];
   page.setDefaultTimeout(60000);
@@ -136,8 +170,8 @@ try {
     await page.waitForFunction(() => [...document.querySelectorAll('a')].some(a => a.textContent === 'Ainda não tenho uma conta' && a.getAttribute('href').includes('next=')));
     await page.getByLabel("E-mail", { exact: true }).fill(email);
     await page.getByLabel("Senha", { exact: true }).fill("fixture-password-only");
-    await page.getByRole("button", { name: /Entrar/ }).click();
     assert.equal(await page.locator("form").evaluate(form => form.checkValidity()), true, "Fixture form must be valid before submitting");
+    await page.getByRole("button", { name: /Entrar/ }).click();
     await Promise.race([
       page.waitForURL("**/carrinho"),
       page.locator(".auth-feedback").waitFor().then(async () => { throw new Error("Fixture login: " + await page.locator(".auth-feedback").innerText()); }),
@@ -361,10 +395,40 @@ try {
   assert.equal(await page.locator(".student-profile-data dd").first().innerText(), "alice@example.test");
   assert.equal(await page.locator('.student-main a[href="/admin"]').count(), 0, "Customer does not see admin shortcut");
   await captureStudentArea("profile", "/perfil");
+  const profileAuthBefore = authReads;
+  const profileResponse = await context.request.get(origin + "/perfil");
+  assert.equal(profileResponse.status(), 200);
+  const profileAuthReads = authReads - profileAuthBefore;
+  const libraryApiRequests = [];
+  const trackLibraryRequest = request => { if (new URL(request.url()).pathname === "/api/library") libraryApiRequests.push(request.url()); };
+  page.on("request", trackLibraryRequest);
+  if (!process.env.TEOREMA_PERFORMANCE_BASELINE) authDelayMs = 1000;
   await page.getByRole("navigation", { name: "Navegação do aluno", exact: true }).getByRole("link", { name: "Meus materiais", exact: true }).click();
+  if (!process.env.TEOREMA_PERFORMANCE_BASELINE) {
+    await page.locator('.student-nav a[href="/meus-materiais"] .student-link-status.is-pending').waitFor({ state: "visible" });
+    authDelayMs = 0;
+  }
   await page.waitForURL("**/meus-materiais");
   await page.getByRole("button", { name: "Baixar PDF: Material de estudo 1", exact: true }).waitFor();
   assert.equal(await page.locator(".library-grid article").count(), 1);
+  page.off("request", trackLibraryRequest);
+  if (!process.env.TEOREMA_PERFORMANCE_BASELINE) {
+    assert.equal(profileAuthReads, 1, "One authoritative Auth lookup, not one in proxy plus another in the page");
+    assert.equal(libraryApiRequests.length, 0, "Initial library streams from the server without a hydration/API waterfall");
+    const libraryHtml = await context.request.get(origin + "/meus-materiais");
+    const cacheControl = libraryHtml.headers()["cache-control"];
+    // Next dev deliberately overwrites page headers; next start must retain
+    // private/no-store. Never accept public/CDN caching of the streamed DTO.
+    assert.match(cacheControl, productionBuild ? /private.*no-store/ : /no-cache|no-store/);
+    assert.doesNotMatch(cacheControl, /public|s-maxage/);
+    assert.match(await libraryHtml.text(), /Material de estudo 1/);
+    await page.evaluate(() => document.fonts.ready);
+    const fonts = await page.evaluate(() => [...document.fonts].filter(font => font.status === "loaded").map(font => font.family));
+    assert.ok(fonts.some(family => /Playfair/.test(family)), "Original display font loaded from this site");
+    assert.ok(fonts.some(family => /DM[\s_]Sans/.test(family)), "Original body font loaded from this site");
+    assert.equal(await page.evaluate(() => performance.getEntriesByType("resource").some(entry => /^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(entry.name))), false);
+  }
+  console.log("PERFORMANCE " + JSON.stringify({ runtime: productionBuild ? "production" : "development", profileAuthReads, initialLibraryApiRequests: libraryApiRequests.length }));
   const ownLibrary = await context.request.get(origin + "/api/library");
   assert.equal(ownLibrary.status(), 200); assert.match(ownLibrary.headers()["cache-control"], /no-store/);
   assert.doesNotMatch(await ownLibrary.text(), /object_key|bucket_id|sha256|reason|granted_by|cpf|token/);
@@ -434,6 +498,17 @@ try {
   }
   assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex, nofollow');
   assert.equal(await page.evaluate(() => [...Object.values(localStorage), ...Object.values(sessionStorage)].some(value => value.includes('/object/sign/'))), false);
+  // Even a correctly signed, unexpired JWT must not authorize a revoked session.
+  if (!process.env.TEOREMA_PERFORMANCE_BASELINE) {
+    revokedSessions.add(users[2].id);
+    assert.equal((await context.request.get(origin + "/api/library")).status(), 401);
+    assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[2] } })).status(), 401);
+    const revokedPage = await context.request.get(origin + "/perfil", { maxRedirects: 0 });
+    const deniedHtml = await revokedPage.text();
+    assert.equal(deniedHtml.includes("bob@example.test"), false);
+    assert.ok([307, 308].includes(revokedPage.status()) || deniedHtml.includes("NEXT_REDIRECT"));
+    revokedSessions.delete(users[2].id);
+  }
   await context.clearCookies();
   assert.equal((await context.request.get(origin + "/api/library")).status(), 401);
   await page.reload(); await page.waitForURL("**/login?next=**");
@@ -449,13 +524,13 @@ finally {
   // Next starts a worker process. Stop only this fixture's process tree before
   // another Next command can read or regenerate the same build directory.
   let cleanupError;
-  if (process.platform === "win32" && child.exitCode === null) {
+  if (process.platform === "win32" && child?.exitCode === null) {
     const termination = spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, encoding: "utf8" });
     if (termination.status !== 0) {
       cleanupError = new Error(`Unable to stop fixture Next PID ${child.pid}; stop that process tree before building. ${termination.stderr || ''}`);
       child.stdout?.destroy(); child.stderr?.destroy(); child.unref();
     }
-  } else child.kill();
+  } else child?.kill();
   fixture.closeAllConnections(); fixture.close(); await db.close();
   if (cleanupError) throw cleanupError;
 }

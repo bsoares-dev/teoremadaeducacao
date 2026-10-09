@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, BookOpen, LayoutDashboard, MessageCircle, ReceiptText, ShieldCheck, ShoppingCart, Store } from "lucide-react";
 import { LogoutButton } from "./session-controls";
+import StudentLinkStatus from "./student-link-status";
 import "./student-area.css";
 
 type StudentSection = "overview" | "library" | "orders" | "cart";
@@ -30,7 +31,7 @@ export default function StudentShell({ children, active, email, commerceEnabled 
         {sections.filter(section => commerceEnabled || !["library", "orders"].includes(section.id)).map(section => {
           const Icon = section.icon;
           return <Link key={section.id} href={section.href} className={active === section.id ? "is-active" : undefined} aria-current={active === section.id ? "page" : undefined}>
-            <Icon size={19} strokeWidth={1.6} aria-hidden="true" /><span>{section.label}</span>
+            <Icon size={19} strokeWidth={1.6} aria-hidden="true" /><span>{section.label}</span><StudentLinkStatus />
           </Link>;
         })}
         <Link href="/materiais"><Store size={19} strokeWidth={1.6} aria-hidden="true" /><span>Explorar catálogo</span><ArrowUpRight className="student-nav-arrow" size={14} aria-hidden="true" /></Link>

@@ -11,7 +11,7 @@
 .catalog-cover-fallback span { color: #f7f5f0; font-family: Georgia, serif; font-size: 23px; }
 .catalog-format { position: absolute; bottom: 0; inset-inline: 0; padding: 10px 16px; color: #0f2840; background: #e4ddcf; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
 .catalog-product-body { padding: 26px; display: flex; flex-direction: column; flex: 1; overflow-wrap: anywhere; }
-.catalog-product h3 { margin: 0 0 16px; font-family: "Playfair Display", Georgia, serif; font-size: clamp(25px, 3vw, 32px); line-height: 1.2; font-weight: 500; }
+.catalog-product h3 { margin: 0 0 16px; font-family: var(--font-playfair, "Playfair Display"), Georgia, serif; font-size: clamp(25px, 3vw, 32px); line-height: 1.2; font-weight: 500; }
 .catalog-description { color: #536574; line-height: 1.7; margin: 0 0 24px; white-space: pre-line; }
 .catalog-product-bottom { margin-top: auto; display: grid; gap: 14px; }
 .catalog-price { font-size: 24px; font-weight: 600; }

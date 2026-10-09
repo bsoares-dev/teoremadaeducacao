@@ -6,7 +6,7 @@
 .catalog-manager :is(button,select,input,summary):focus-visible { outline: 2px solid #195681; outline-offset: 4px; }
 .catalog-editor { padding: clamp(20px, 3vw, 36px); background: #ffffffb0; border: 1px solid #93846c33; }
 .catalog-editor-heading { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
-.catalog-editor-heading h3, .catalog-list-title { font-family: "Playfair Display", Georgia, serif; font-weight: 500; font-size: clamp(27px, 3vw, 36px); margin: 12px 0 24px; }
+.catalog-editor-heading h3, .catalog-list-title { font-family: var(--font-playfair, "Playfair Display"), Georgia, serif; font-weight: 500; font-size: clamp(27px, 3vw, 36px); margin: 12px 0 24px; }
 .catalog-editor-heading img { object-fit: cover; border-radius: 4px; }
 .catalog-editor .product-form { display: block; max-width: none; padding: 0; box-shadow: none; background: transparent; }
 .catalog-editor fieldset { min-width: 0; margin: 0; padding: 0; border: none; }
@@ -15,7 +15,7 @@
 .catalog-hint, .material-upload p, .publication-actions p { font-size: 13px; color: #5b6870; line-height: 1.65; }
 .material-upload { border-top: 1px solid #93846c44; margin-top: 32px; padding-top: 28px; }
 .material-upload fieldset { display: grid; gap: 20px; }
-.material-upload legend { font-family: "Playfair Display", Georgia, serif; font-size: 24px; margin-bottom: 18px; }
+.material-upload legend { font-family: var(--font-playfair, "Playfair Display"), Georgia, serif; font-size: 24px; margin-bottom: 18px; }
 .material-upload label { display: grid; gap: 10px; color: #78684f; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; overflow-wrap: anywhere; }
 .material-upload :is(input,select) { max-width: 100%; min-width: 0; padding: 12px; border: 1px solid #93846c55; background: #f7f5f0; color: #0f2840; font-size: 16px; text-transform: none; }
 .upload-dropzone { padding: 22px; border: 1px dashed #93846c; background: #f7f5f0; }

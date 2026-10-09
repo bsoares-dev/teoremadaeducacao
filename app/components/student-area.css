@@ -20,7 +20,7 @@
 .student-brand { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
 .student-brand img { object-fit: contain; }
 .student-brand span { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; line-height: 1.3; font-weight: 600; }
-.student-brand i { display: block; font: italic 21px/1.25 "Playfair Display", Georgia, serif; letter-spacing: -.02em; text-transform: none; }
+.student-brand i { display: block; font: italic 21px/1.25 var(--font-playfair, "Playfair Display"), Georgia, serif; letter-spacing: -.02em; text-transform: none; }
 .student-nav-label { color: #c1b49c; font-size: 9px; text-transform: uppercase; letter-spacing: .13em; margin: 49px 12px 15px; }
 .student-nav { display: grid; gap: 6px; }
 .student-nav a { display: flex; align-items: center; gap: 13px; padding: 13px 14px; min-height: 48px; border: 1px solid transparent; border-radius: 9px; color: #bdc9d3; transition: background .18s, color .18s; }
@@ -46,7 +46,7 @@
 .student-content { max-width: 1160px; margin: 0 auto; }
 .student-area .eyebrow { color: var(--student-gold); font-size: 10px; letter-spacing: .16em; font-weight: 600; margin: 0 0 12px; }
 .student-page-heading { margin-bottom: 30px; }
-.student-page-heading h1 { font: 500 clamp(34px, 4vw, 52px)/1.15 "Playfair Display", Georgia, serif; letter-spacing: -.035em; margin: 0 0 16px; }
+.student-page-heading h1 { font: 500 clamp(34px, 4vw, 52px)/1.15 var(--font-playfair, "Playfair Display"), Georgia, serif; letter-spacing: -.035em; margin: 0 0 16px; }
 .student-page-heading h1 em { color: var(--student-gold); font-weight: 500; }
 .student-page-heading > p:last-child { max-width: 660px; margin: 0; color: var(--student-muted); font-size: 15px; line-height: 1.75; }
 .student-area .account-button { gap: 9px; min-height: 44px; border-radius: 8px; padding: 12px 18px; font-size: 12px; letter-spacing: .015em; border-color: var(--student-navy); background: var(--student-navy); color: #f7f5f0; transition: background .18s, border-color .18s; }
@@ -64,13 +64,13 @@
 .student-welcome::after { width: 430px; height: 430px; right: -205px; top: -135px; }
 .student-welcome > * { position: relative; }
 .student-area .student-welcome .eyebrow { color: #c6b496; }
-.student-welcome h1 { max-width: 600px; font: 500 clamp(34px, 4vw, 48px)/1.17 "Playfair Display", Georgia, serif; letter-spacing: -.035em; margin: 0 0 18px; }
+.student-welcome h1 { max-width: 600px; font: 500 clamp(34px, 4vw, 48px)/1.17 var(--font-playfair, "Playfair Display"), Georgia, serif; letter-spacing: -.035em; margin: 0 0 18px; }
 .student-welcome h1 em { color: #cbb799; }
 .student-welcome > p:not(.eyebrow) { color: #bac8d3; max-width: 515px; margin: 0; line-height: 1.8; }
 .student-welcome .account-button { background: #f7f5f0; color: #0f2840; border: 0; margin-top: 28px; }
 .student-welcome .account-button:hover:not(:disabled) { background: #e8dfcf; }
 .student-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin: 34px 0 18px; }
-.student-section-heading h2 { font: 500 25px/1.3 "Playfair Display", Georgia, serif; letter-spacing: -.025em; margin: 0; }
+.student-section-heading h2 { font: 500 25px/1.3 var(--font-playfair, "Playfair Display"), Georgia, serif; letter-spacing: -.025em; margin: 0; }
 .student-section-heading > span { font-size: 12px; color: var(--student-muted); }
 .student-shortcuts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .student-shortcut { display: flex; flex-direction: column; position: relative; min-width: 0; padding: 26px; background: #fffefa; border: 1px solid var(--student-border); border-radius: 12px; transition: border-color .2s, transform .2s; }
@@ -91,13 +91,13 @@
 .student-profile-data dd { margin: 0; overflow-wrap: anywhere; font-size: 13px; }
 .student-profile-data .wide { grid-column: 1 / -1; }
 .student-help { display: flex; flex-direction: column; align-items: flex-start; background: #eeebe3; }
-.student-help h2 { font: 500 27px/1.25 "Playfair Display", Georgia, serif; margin: 14px 0; }
+.student-help h2 { font: 500 27px/1.25 var(--font-playfair, "Playfair Display"), Georgia, serif; margin: 14px 0; }
 .student-help > p { color: var(--student-muted); font-size: 13px; margin: 0 0 22px; line-height: 1.8; }
 .student-help .account-button { margin-top: auto; }
 .student-admin-link { display: inline-flex; gap: 8px; align-items: center; color: var(--student-muted); margin-top: 24px; font-size: 12px; }
 .student-empty { text-align: center; padding: clamp(28px, 5vw, 60px); background: #fffefa; border: 1px solid var(--student-border); border-radius: 14px; }
 .student-empty .student-icon { margin: 0 auto 22px; width: 56px; height: 56px; border-radius: 50%; }
-.student-empty h2 { font: 500 clamp(26px, 3vw, 34px)/1.3 "Playfair Display", Georgia, serif; margin: 0 0 16px; }
+.student-empty h2 { font: 500 clamp(26px, 3vw, 34px)/1.3 var(--font-playfair, "Playfair Display"), Georgia, serif; margin: 0 0 16px; }
 .student-empty > p { max-width: 490px; margin: 0 auto 24px; color: var(--student-muted); }
 @media (max-width: 1100px) {
   .student-area { grid-template-columns: 222px minmax(0, 1fr); }
@@ -142,4 +142,9 @@
   .student-welcome { padding: 27px 22px; }
   .student-profile-data { grid-template-columns: 1fr; gap: 20px; }
 }
+.student-nav a { position: relative; }
+.student-link-status { position: absolute; right: 12px; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; visibility: hidden; pointer-events: none; }
+.student-link-status.is-pending { visibility: visible; animation: student-link-spin .8s linear infinite; }
+@keyframes student-link-spin { to { transform: rotate(360deg); } }
+@media (max-width: 800px) { .student-link-status { inset: auto 0 0; width: 100%; height: 2px; border: 0; border-radius: 0; background: currentColor; } .student-link-status.is-pending { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .student-area *, .student-area *::before, .student-area *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }

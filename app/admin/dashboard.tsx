@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogoutButton } from "@/app/components/session-controls";
-import ProductsManager from "./products-manager";
-import CommerceManager from "./commerce-manager";
+const loadingTab = () => <p role="status">Carregando...</p>;
+const ProductsManager = dynamic(() => import("./products-manager"), { loading: loadingTab });
+const CommerceManager = dynamic(() => import("./commerce-manager"), { loading: loadingTab });
 
 type Profile = { id: string; email: string; cpf: string; phone: string; created_at: string };
 
