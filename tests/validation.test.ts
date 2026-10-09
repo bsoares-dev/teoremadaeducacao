@@ -9,7 +9,7 @@ test("CPF rejects repeated digits and wrong check digits, accepts formatted vali
   assert.equal(isValidCpf("529.982.247-25"), true);
 });
 test("signup normalizes identifiers and rejects short passwords and invalid phone", () => {
-  const input = { email: " Example@Test.com ", password: "example123", cpf: "529.982.247-25", phone: "(48) 99999-9999" };
+  const input = { fullName: "João da Silva", email: " Example@Test.com ", password: "example123", cpf: "529.982.247-25", phone: "(48) 99999-9999" };
   const result = signupSchema.parse(input);
   assert.equal(result.cpf, "52998224725"); assert.equal(result.phone, "48999999999"); assert.equal(result.email, "example@test.com");
   assert.equal(signupSchema.safeParse({ ...input, password: "123" }).success, false);

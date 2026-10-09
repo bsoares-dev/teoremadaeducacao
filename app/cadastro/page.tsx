@@ -26,6 +26,7 @@ function formatPhone(value: string) {
 
 export default function CadastroScreen() {
   const router = useRouter();
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [cpf, setCpf] = useState("");
@@ -42,7 +43,7 @@ export default function CadastroScreen() {
     setFeedback("");
 
     try {
-      const parsed = signupSchema.safeParse({ email, password, cpf, phone });
+      const parsed = signupSchema.safeParse({ fullName, email, password, cpf, phone });
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || "Confira seus dados.");
       const response = await fetch("/api/register?next=" + encodeURIComponent(destination), {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -85,6 +86,10 @@ export default function CadastroScreen() {
           <p>Sua seleção permanece neste navegador. Depois de confirmar, entre para recuperá-la no carrinho.</p>
           <Link className="auth-switch" href={"/login?next=" + encodeURIComponent(destination)}>Ir para o login</Link>
         </div> : <form className="auth-form register-form" onSubmit={handleRegister}>
+          <div className="auth-field register-field-full">
+            <label htmlFor="register-name">Nome completo</label>
+            <input id="register-name" name="fullName" type="text" value={fullName} onChange={(event) => setFullName(event.target.value)} autoComplete="name" minLength={2} maxLength={150} required />
+          </div>
           <div className="auth-field register-field-full">
             <label htmlFor="register-email">E-mail</label>
             <input id="register-email" name="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required />

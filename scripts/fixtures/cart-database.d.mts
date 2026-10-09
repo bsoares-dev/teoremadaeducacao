@@ -1,5 +1,5 @@
 import type { PGlite, Transaction } from "@electric-sql/pglite";
-export function cartDatabase(): Promise<{
+export function cartDatabase(options?: { legacyAuthTrigger?: boolean }): Promise<{
   db: PGlite;
   users: { id: string; email: string }[];
   ids: string[];

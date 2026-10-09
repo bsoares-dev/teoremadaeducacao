@@ -30,6 +30,7 @@ const sessions = users.map(user => {
 });
 let authReads = 0;
 let authDelayMs = 0;
+let signupMetadata = null;
 const revokedSessions = new Set();
 let dropResponse = false, droppedOperation = null;
 let dropOrderResponse = false;
@@ -57,7 +58,7 @@ const fixture = transportServer(async (req, res) => {
       const selected = body.auth_code ? sessions[1] : sessions.find(session => session.user.email === body.email);
       res.writeHead(selected ? 200 : 400); res.end(JSON.stringify(selected || { message: "Invalid fixture login" })); return;
     }
-    if (url.pathname === "/auth/v1/signup") { res.end(JSON.stringify({ user: sessions[1].user })); return; }
+    if (url.pathname === "/auth/v1/signup") { signupMetadata = body.data; res.end(JSON.stringify({ user: sessions[1].user })); return; }
     if (url.pathname === "/auth/v1/verify") { res.end(JSON.stringify(sessions[1])); return; }
     if (url.pathname === "/auth/v1/logout") { res.writeHead(204); res.end(); return; }
     if (url.pathname.startsWith("/storage/v1/object/")) {
@@ -105,6 +106,8 @@ const fixture = transportServer(async (req, res) => {
         value = await service(async tx => (await tx.query("select teorema_cancel_order($1,$2,$3) as value", [body.p_actor_id, body.p_order_id, body.p_reason])).rows[0].value);
       } else if (url.pathname.endsWith("/teorema_set_access_state")) {
         value = await service(async tx => (await tx.query("select teorema_set_access_state($1,$2,$3,$4,$5) as value", [body.p_actor_id, body.p_grant_id, body.p_state, body.p_reason, body.p_operation_id])).rows[0].value);
+      } else if (url.pathname.endsWith("/teorema_update_profile_name")) {
+        value = await service(async tx => (await tx.query("select teorema_update_profile_name($1,$2) as value", [body.p_user_id, body.p_full_name])).rows[0].value);
       } else throw new Error("Unknown fixture RPC");
       res.end(JSON.stringify(value)); return;
     }
@@ -194,13 +197,27 @@ try {
     await page.keyboard.press("Enter");
     await page.waitForFunction(() => document.activeElement?.id === "student-content");
   }
-  await page.goto(origin + "/materiais");
+  // Feature readiness is asserted below; unrelated asset load must not gate it.
+  await page.goto(origin + "/materiais", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Adicionar ao carrinho: Material de estudo 1", exact: true }).click();
   await page.getByText("1 material selecionado", { exact: true }).waitFor();
   await page.getByRole("link", { name: /Ir para o carrinho/ }).click();
   await page.waitForURL("**/login?next=**");
   await page.getByRole("link", { name: "Ainda não tenho uma conta", exact: true }).click();
   await page.waitForURL("**/cadastro?next=**");
+  assert.equal((await context.request.patch(origin + "/api/profile", { headers: { Origin: origin }, data: { fullName: "Anonymous visitor" } })).status(), 401);
+  await page.getByLabel("Nome completo", { exact: true }).fill("  João   da Silva  ");
+  await page.getByLabel("E-mail", { exact: true }).fill("named@example.test");
+  await page.getByLabel("Senha", { exact: true }).fill("fixture-password-only");
+  await page.getByLabel("CPF", { exact: true }).fill("52998224725");
+  await page.getByLabel("Telefone", { exact: true }).fill("48999999999");
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Signup overflow ${width}`);
+  }
+  await page.getByRole("button", { name: "Cadastrar", exact: true }).click();
+  await page.getByRole("heading", { name: "Confira seu e-mail.", exact: true }).waitFor();
+  assert.deepEqual(signupMetadata, { full_name: "João da Silva", cpf: "52998224725", phone: "48999999999" });
   await page.getByRole("link", { name: "Já tenho uma conta", exact: true }).click();
   await login("alice@example.test"); await ready();
   assert.equal(await page.locator(".pdf-cart-item").count(), 1);
@@ -393,6 +410,23 @@ try {
   await page.goto(origin + "/perfil");
   await page.getByRole("heading", { name: "Minha conta", exact: true }).waitFor();
   assert.equal(await page.locator(".student-profile-data dd").first().innerText(), "alice@example.test");
+  assert.equal(await page.getByLabel("Nome completo", { exact: true }).inputValue(), "");
+  const profileBefore = (await db.query("select email,cpf,phone,created_at from profiles where id=$1", [users[1].id])).rows[0];
+  await page.getByLabel("Nome completo", { exact: true }).fill("  Débora   França  ");
+  await page.getByRole("button", { name: "Salvar nome", exact: true }).click();
+  await page.getByText("Nome salvo com sucesso.", { exact: true }).waitFor();
+  await page.reload();
+  assert.equal(await page.getByLabel("Nome completo", { exact: true }).inputValue(), "Débora França");
+  assert.deepEqual((await db.query("select email,cpf,phone,created_at from profiles where id=$1", [users[1].id])).rows[0], profileBefore);
+  assert.equal((await db.query("select full_name from profiles where id=$1", [users[2].id])).rows[0].full_name, null);
+  for (const extra of [{ userId: users[2].id }, { id: users[2].id }, { cpf: "11144477735" }, { role: "admin" }]) {
+    assert.equal((await context.request.patch(origin + "/api/profile", { headers: { Origin: origin }, data: { fullName: "Foreign name", ...extra } })).status(), 400);
+  }
+  assert.equal((await context.request.patch(origin + "/api/profile", { headers: { Origin: "https://other.test" }, data: { fullName: "Cross origin" } })).status(), 400);
+  const profileAfter = await context.request.get(origin + "/api/profile");
+  assert.equal((await profileAfter.json()).profile.full_name, "Débora França");
+  assert.equal(profileAfter.headers()["cache-control"], "private, no-store");
+  console.log("PASS student names: required signup, normalized metadata, profile edit/reload, unchanged CPF/phone/email, anonymous/foreign-owner/injected-role/cross-origin writes rejected.");
   assert.equal(await page.locator('.student-main a[href="/admin"]').count(), 0, "Customer does not see admin shortcut");
   await captureStudentArea("profile", "/perfil");
   const profileAuthBefore = authReads;

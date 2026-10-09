@@ -20,7 +20,8 @@ test("administrator reads require the private UUID eligibility, not email alone"
 });
 
 test("signup rejects injected admin/identity attributes", () => {
-  const input = { email: "fixture@example.test", password: "fixture123", cpf: "52998224725", phone: "48900000000" };
+  const input = { fullName: "João da Silva", email: "fixture@example.test", password: "fixture123", cpf: "52998224725", phone: "48900000000" };
+  assert.equal(signupSchema.safeParse(input).success, true);
   for (const extra of [{ role: "admin" }, { id: "other-uuid" }, { email_confirmed_at: "2026-01-01" }, { user_metadata: { admin: true } }]) {
     assert.equal(signupSchema.safeParse({ ...input, ...extra }).success, false);
   }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fullNameSchema } from "./profile-name-schema";
 
 export function isValidCpf(value: string) {
   const cpf = value.replace(/\D/g, "");
@@ -13,6 +14,7 @@ export function isValidCpf(value: string) {
 }
 
 export const signupSchema = z.object({
+  fullName: fullNameSchema,
   email: z.string().trim().email("Informe um e-mail válido.").max(160).transform(v => v.toLowerCase()),
   password: z.string().min(8, "Use uma senha com pelo menos 8 caracteres.").max(128),
   cpf: z.string().transform(v => v.replace(/\D/g, "")).refine(isValidCpf, "Informe um CPF válido."),

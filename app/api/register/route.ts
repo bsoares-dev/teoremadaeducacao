@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase.auth.signUp({
       email: input.email, password: input.password,
       options: {
-        data: { cpf: input.cpf, phone: input.phone },
+        data: { full_name: input.fullName, cpf: input.cpf, phone: input.phone },
         emailRedirectTo: new URL("/auth/callback?next=" + encodeURIComponent(safeNext(new URL(request.url).searchParams.get("next"), "/carrinho")), request.url).toString(),
       },
     });

@@ -2,7 +2,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { readFile, readdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 
-export async function cartDatabase() {
+export async function cartDatabase({ legacyAuthTrigger = false } = {}) {
   const db = new PGlite();
   await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create schema storage;
@@ -14,6 +14,15 @@ export async function cartDatabase() {
     alter table storage.objects enable row level security;
     grant usage on schema public,auth,storage to anon,authenticated,service_role;
     grant all on storage.objects,storage.buckets to service_role;`);
+  if (legacyAuthTrigger) await db.exec(`
+    create function public.handle_new_user() returns trigger language plpgsql security definer as $$
+    begin
+      insert into public.profiles(id,email,cpf,phone)
+      values(new.id,new.email,new.raw_user_meta_data->>'cpf',new.raw_user_meta_data->>'phone');
+      return new;
+    end; $$;
+    create trigger on_auth_user_created after insert on auth.users
+    for each row execute function public.handle_new_user();`);
   const names = (await readdir("supabase/migrations")).filter(name => name.endsWith(".sql")).sort();
   for (const name of names.slice(0, 3)) await db.exec(await readFile(`supabase/migrations/${name}`, "utf8"));
   const users = [
