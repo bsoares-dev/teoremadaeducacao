@@ -4,7 +4,7 @@ import { readdir, readFile } from "node:fs/promises";
 import nextEnv from "@next/env";
 
 nextEnv.loadEnvConfig(process.cwd());
-const names = ["SUPABASE_SERVICE_ROLE_KEY", "POSTGRES_URL", "ENCRYPTION_KEY", "ADMIN_PASSWORD", "TEOREMA_TEST_ADMIN_PASSWORD"];
+const names = ["SUPABASE_SERVICE_ROLE_KEY", "POSTGRES_URL", "ENCRYPTION_KEY", "ADMIN_PASSWORD", "TEOREMA_TEST_ADMIN_PASSWORD", "PDF_LICENSE_SECRET"];
 const secrets = names.filter(name => process.env[name]?.length >= 8).map(name => ({ name, value: process.env[name] }));
 const files = [];
 async function walk(dir) {
@@ -17,8 +17,12 @@ async function walk(dir) {
 await walk(".next/static");
 assert.ok(files.length > 0, "Production client build missing");
 const violations = new Set();
+const serverMarkers = ["teorema_begin_pdf_download", "teorema_finish_pdf_download", "teorema_prepare_pdf_download",
+  "teorema_get_or_create_pdf_license", "teorema_set_pdf_license_state", "teorema_pdf_session_active"];
 for (const path of files) {
   const content = await readFile(path, "utf8");
+  if (/NEXT_PUBLIC_(?:SUPABASE_SERVICE_ROLE_KEY|PDF_LICENSE_SECRET)/.test(content)) violations.add("Forbidden public server credential name");
+  for (const marker of serverMarkers) if (content.includes(marker)) violations.add("Privileged PDF RPC in client bundle: " + marker);
   for (const secret of secrets) if (content.includes(secret.value) || content.includes(encodeURIComponent(secret.value))) violations.add(secret.name);
 }
 assert.equal(violations.size, 0, `Server credential values present in client bundle: ${[...violations].join(", ")}`);

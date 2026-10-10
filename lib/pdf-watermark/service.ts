@@ -3,7 +3,7 @@ import { parseWatermarkConfig } from "./config";
 import { renderPersonalizedPdf } from "./personalize";
 import type { PdfPersonalizationInput } from "./types";
 
-// Entry point for a future authenticated download route (Part 3).
+// Server entry point used by the authenticated personalized download service.
 // No Storage access, purchase lookup, license creation or browser endpoint here.
 export async function personalizePdf(input: PdfPersonalizationInput): Promise<Uint8Array> {
   const config = parseWatermarkConfig({

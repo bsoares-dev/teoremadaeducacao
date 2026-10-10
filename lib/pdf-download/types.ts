@@ -39,3 +39,10 @@ export function downloadDbError(error: { code?: string; message?: string } | nul
   if (error.code === "P0002" || error.code === "23514") throw new PdfDownloadError("PDF_NOT_FOUND");
   throw new PdfDownloadError("DOWNLOAD_FAILED");
 }
+
+export function downloadStorageError(error: unknown): PdfDownloadError {
+  // Match status only. Never expose, log or rely on the Storage diagnostic text.
+  const missing = typeof error === "object" && error !== null && "statusCode" in error &&
+    (error.statusCode === 404 || error.statusCode === "404");
+  return new PdfDownloadError(missing ? "PDF_NOT_FOUND" : "DOWNLOAD_FAILED");
+}

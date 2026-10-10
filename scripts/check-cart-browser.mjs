@@ -12,6 +12,8 @@ import { fixtureSelect, fixtureTables } from "./fixtures/rest-select.mjs";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : "playwright");
 const productionBuild = process.env.TEOREMA_BROWSER_PRODUCTION === "true";
+const fixturePdfLimit = process.env.TEOREMA_FIXTURE_PDF_MAX_DOWNLOADS || "0";
+assert.ok(["0", "6"].includes(fixturePdfLimit), "Fixture supports unlimited or the explicit six-copy quota scenario");
 // Production CSP requires HTTPS even in this isolated transport. Trust only
 // the explicitly supplied test certificate in the Next child, never disable TLS.
 const transportServer = productionBuild ? createHttpsServer.bind(null, {
@@ -29,14 +31,17 @@ const hashPdf = bytes => createHash("sha256").update(bytes).digest("hex");
 const { db, users, ids, service } = await cartDatabase({ pdfBytes: privatePdf });
 const origin = "http://localhost:3105", api = `${productionBuild ? "https" : "http"}://127.0.0.1:54142`, serviceKey = "local-service-fixture";
 const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+const sessionIds = users.map(() => crypto.randomUUID());
+for (const [index, user] of users.entries()) await db.query("insert into auth.sessions(id,user_id) values($1,$2)", [sessionIds[index], user.id]);
 const jwk = { ...publicKey.export({ format: "jwk" }), kid: "fixture-signing-key", alg: "ES256", use: "sig" };
-const sessions = users.map(user => {
+const sessions = users.map((user, index) => {
   const record = { ...user, aud: "authenticated", role: "authenticated", email_confirmed_at: new Date().toISOString(), app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString(), is_anonymous: false };
   const exp = Math.floor(Date.now() / 1000) + 7200;
-  const payload = `${Buffer.from(JSON.stringify({ alg: "ES256", typ: "JWT", kid: jwk.kid })).toString("base64url")}.${Buffer.from(JSON.stringify({ sub: user.id, exp, iss: api + "/auth/v1", role: "authenticated", aud: "authenticated" })).toString("base64url")}`;
+  const payload = `${Buffer.from(JSON.stringify({ alg: "ES256", typ: "JWT", kid: jwk.kid })).toString("base64url")}.${Buffer.from(JSON.stringify({ sub: user.id, session_id: sessionIds[index], exp, iss: api + "/auth/v1", role: "authenticated", aud: "authenticated" })).toString("base64url")}`;
   const signature = sign("sha256", Buffer.from(payload), { key: privateKey, dsaEncoding: "ieee-p1363" }).toString("base64url");
   return { access_token: `${payload}.${signature}`, refresh_token: "local-refresh", expires_at: exp, expires_in: 7200, token_type: "bearer", user: record };
 });
+let storageMissing = false, requestBudgetUnavailable = false, endSessionOnOriginalRead = null;
 let authReads = 0;
 let authDelayMs = 0;
 let signupMetadata = null;
@@ -78,17 +83,25 @@ const fixture = transportServer(async (req, res) => {
       const [, action, key] = match;
       if (token !== serviceKey) { res.writeHead(403); res.end('{"message":"Server required"}'); return; }
       if (storageUnavailable) { res.writeHead(503); res.end('{"message":"Storage unavailable"}'); return; }
+      if (storageMissing) { res.writeHead(404); res.end('{"message":"Missing fixture object"}'); return; }
       const file = (await service(tx => tx.query("select f.size_bytes from product_files f join storage.objects o on o.bucket_id=f.bucket_id and o.name=f.object_key where f.object_key=$1", [key]))).rows[0];
       if (!file) { res.writeHead(404); res.end('{"message":"Missing fixture object"}'); return; }
       if (action === "info") { res.end(JSON.stringify({ size: Number(file.size_bytes), content_type: "application/pdf", cache_control: pdfCacheControl })); return; }
       assert.equal(req.method, "GET"); originalReads++;
+      if (endSessionOnOriginalRead) {
+        await db.query("delete from auth.sessions where user_id=$1", [endSessionOnOriginalRead]); endSessionOnOriginalRead = null;
+      }
       res.setHeader("Content-Type", "application/pdf"); res.setHeader("Cache-Control", "private, no-store");
       res.end(corruptPdf ? Buffer.alloc(privatePdf.length, 65) : privatePdf); return;
     }
     if (url.pathname.startsWith("/rest/v1/rpc/")) {
       assert.equal(token, serviceKey, "RPC must use server credentials");
       let value;
-      if (url.pathname.endsWith("/teorema_consume_request")) value = await service(async tx => (await tx.query("select teorema_consume_request($1,$2) as value", [body.p_user_id, body.p_action])).rows[0].value);
+      if (url.pathname.endsWith("/teorema_pdf_session_active")) value = await service(async tx => (await tx.query("select teorema_pdf_session_active($1,$2) value", [body.p_user_id, body.p_session_id])).rows[0].value);
+      else if (url.pathname.endsWith("/teorema_consume_request")) {
+        if (requestBudgetUnavailable) { res.writeHead(503); res.end('{"code":"08006","message":"Fixture budget unavailable"}'); return; }
+        value = await service(async tx => (await tx.query("select teorema_consume_request($1,$2) as value", [body.p_user_id, body.p_action])).rows[0].value);
+      }
       else if (url.pathname.endsWith("/teorema_read_library")) value = await service(async tx => (await tx.query("select teorema_read_library($1,$2) as value", [body.p_user_id, body.p_page])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_resolve_pdf")) value = await service(async tx => (await tx.query("select teorema_resolve_pdf($1,$2) as value", [body.p_user_id, body.p_product_id])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_prepare_pdf_download")) value = await service(async tx => (await tx.query("select teorema_prepare_pdf_download($1,$2,$3,$4) as value", [body.p_user_id, body.p_product_id, body.p_license_code, body.p_license_id])).rows[0].value);
@@ -145,7 +158,7 @@ const fixture = transportServer(async (req, res) => {
 await new Promise(resolve => fixture.listen(54142, "127.0.0.1", resolve));
 const fixtureEnv = { ...process.env, NODE_ENV: productionBuild ? "production" : "development", VERCEL_ENV: "preview",
     ...(productionBuild ? { NODE_EXTRA_CA_CERTS: process.env.TEOREMA_FIXTURE_TLS_CERT } : {}),
-    TEOREMA_CATALOG_SELECTION_ENABLED: "true", TEOREMA_CART_ENABLED: "true", PDF_MAX_DOWNLOADS: "0", NEXT_PUBLIC_SUPABASE_URL: api,
+    TEOREMA_CATALOG_SELECTION_ENABLED: "true", TEOREMA_CART_ENABLED: "true", PDF_MAX_DOWNLOADS: fixturePdfLimit, PDF_ENCRYPTION_ENABLED: "false", NEXT_PUBLIC_SUPABASE_URL: api,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "local-public-fixture", SUPABASE_SERVICE_ROLE_KEY: serviceKey };
 let output = "", browser, child;
 try {
@@ -169,7 +182,7 @@ try {
     if (child.exitCode !== null) throw new Error(output);
     await new Promise(resolve => setTimeout(resolve, 500));
   }
-  browser = await chromium.launch({ headless: true, channel: "msedge" });
+  browser = await chromium.launch({ headless: true, channel: "msedge", args: ["--disable-background-networking", "--disable-renderer-backgrounding", "--disable-background-timer-throttling", "--disable-features=CalculateNativeWinOcclusion"] });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, ignoreHTTPSErrors: productionBuild });
   // Block external font transport in isolated tests; optimized pages must load
   // the original families from self-hosted assets, asserted below.
@@ -524,12 +537,13 @@ try {
   const reads = originalReads; pdfCacheControl = "max-age=3600";
   assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 500);
   assert.equal(originalReads, reads, "Unsafe metadata fails before reading original"); pdfCacheControl = "max-age=0";
-  for (const failure of ["storage", "corrupt"]) {
-    storageUnavailable = failure === "storage"; corruptPdf = failure === "corrupt";
+  for (const failure of ["storage", "corrupt", "missing"]) {
+    storageUnavailable = failure === "storage"; corruptPdf = failure === "corrupt"; storageMissing = failure === "missing";
     const failed = await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } });
-    assert.equal(failed.status(), 500); assert.equal((await failed.json()).code, "DOWNLOAD_FAILED");
+    assert.equal(failed.status(), failure === "missing" ? 404 : 500);
+    assert.equal((await failed.json()).code, failure === "missing" ? "PDF_NOT_FOUND" : "DOWNLOAD_FAILED");
   }
-  storageUnavailable = false; corruptPdf = false;
+  storageUnavailable = false; corruptPdf = false; storageMissing = false;
   const issuedLicense = (await service(tx => tx.query("select id from pdf_licenses where user_id=$1 and product_id=$2", [users[1].id, ids[0]]))).rows[0].id;
   assert.equal((await context.request.get(origin + "/api/admin/pdf-licenses")).status(), 403);
   assert.equal((await context.request.post(origin + "/api/admin/pdf-licenses/" + issuedLicense, { headers: { Origin: origin }, data: {} })).status(), 403);
@@ -576,11 +590,33 @@ try {
   }
   const countBeforeRestore = (await db.query("select count(*)::int n from pdf_download_logs where license_id=$1 and success", [issuedLicense])).rows[0].n;
   assert.equal(countBeforeRestore, 5);
-  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 200, "Reactivated license downloads again");
+  // Reset only the isolated fixture's minute budget to test quota independently.
+  await db.query("update teorema_private.request_limits set window_start=clock_timestamp()-interval '61 seconds' where user_id=$1 and action='PDF_DOWNLOAD'", [users[1].id]);
+  if (fixturePdfLimit === "6") {
+    const simultaneous = await Promise.all(Array.from({ length: 6 }, () => context.request.post(origin + "/api/library/download", {
+      headers: { Origin: origin }, data: { productId: ids[0] },
+    })));
+    const allowed = simultaneous.filter(response => response.status() === 200), denied = simultaneous.filter(response => response.status() === 403);
+    assert.equal(allowed.length, 1, "Exactly one remaining quota slot delivers a personalized PDF");
+    assert.equal(denied.length, 5);
+    assert.equal((await PDFDocument.load(await allowed[0].body())).getSubject(), licenseSubject);
+    for (const response of denied) {
+      assert.equal((await response.json()).code, "DOWNLOAD_LIMIT_REACHED");
+      assert.equal(response.headers()["cache-control"], "private, no-store");
+    }
+    assert.equal((await db.query("select count(*)::int n from pdf_download_logs where license_id=$1 and success", [issuedLicense])).rows[0].n, 6);
+    console.log("PASS HTTP quota: six simultaneous API calls consume exactly one remaining slot, five 403 denials, stable license and six lifetime successes.");
+  } else {
+    assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 200, "Reactivated license downloads again");
+  }
   await licensePage.evaluate(actor => sessionStorage.setItem('teorema:pdf-license-decision:v1:' + actor, '{broken'), users[0].id);
   await licensePage.reload(); await licensePage.getByRole("button", { name: "Licenças de PDFs", exact: true }).click();
   await licensePage.getByText(/Tentativa pendente ilegível/).waitFor();
   assert.equal(await licensePage.getByRole("button", { name: "Revogar licença", exact: true }).isDisabled(), true);
+  await db.query("delete from auth.sessions where id=$1", [sessionIds[0]]);
+  assert.equal((await licenseContext.request.get(origin + "/api/admin/pdf-licenses")).status(), 401, "Valid admin JWT without active session cannot read licenses");
+  assert.equal((await licenseContext.request.post(origin + "/api/admin/pdf-licenses/" + issuedLicense, { headers: { Origin: origin }, data: {} })).status(), 401);
+  await db.query("insert into auth.sessions(id,user_id) values($1,$2)", [sessionIds[0], users[0].id]);
   await licenseContext.close();
   console.log("PASS PDF controls UI: server-authorized license list/history, generation counts/failures, revoke + lost-response recovery across reload with one event, denied copy, restore preserving license/count, forged actor/origin/customer admin endpoint rejected, corrupted journal blocked, responsive 320/390/768/1440.");
   await db.query("delete from storage.objects where name=$1", [updatedKey]);
@@ -614,6 +650,30 @@ try {
   }
   assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex, nofollow');
   assert.equal(await page.evaluate(() => [...Object.values(localStorage), ...Object.values(sessionStorage)].some(value => value.includes('/object/sign/'))), false);
+  const readsBeforeLimit = originalReads, attemptsBeforeLimit = (await db.query("select count(*)::int n from pdf_download_logs")).rows[0].n;
+  await db.query("insert into teorema_private.request_limits(user_id,action,window_start,requests) values($1,'PDF_DOWNLOAD',clock_timestamp(),20) on conflict(user_id,action) do update set window_start=excluded.window_start,requests=20", [users[2].id]);
+  const limited = await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[2] } });
+  assert.equal(limited.status(), 429); assert.ok(Number(limited.headers()["retry-after"]) > 0);
+  assert.equal(limited.headers()["cache-control"], "private, no-store");
+  requestBudgetUnavailable = true;
+  const budgetFailure = await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[2] } });
+  assert.equal(budgetFailure.status(), 503); assert.doesNotMatch(await budgetFailure.text(), /08006|Fixture|stack|service-fixture/);
+  requestBudgetUnavailable = false;
+  assert.equal(originalReads, readsBeforeLimit, "Rate limiting/unknown budget blocks before original read");
+  assert.equal((await db.query("select count(*)::int n from pdf_download_logs")).rows[0].n, attemptsBeforeLimit);
+  console.log("PASS HTTP rate limit: 429 + Retry-After, budget outage fails closed, no original read or reservation.");
+  await db.query("delete from auth.sessions where id=$1", [sessionIds[2]]);
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[2] } })).status(), 401, "Auth user and valid signed JWT are insufficient without the actual session");
+  await db.query("insert into auth.sessions(id,user_id) values($1,$2)", [sessionIds[2], users[2].id]);
+  await db.query("update teorema_private.request_limits set window_start=clock_timestamp()-interval '61 seconds' where user_id=$1 and action='PDF_DOWNLOAD'", [users[2].id]);
+  await service(tx => tx.query("select teorema_update_profile_name($1,'José Gonçalves')", [users[2].id]));
+  endSessionOnOriginalRead = users[2].id;
+  const endedDuringGeneration = await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[2] } });
+  assert.equal(endedDuringGeneration.status(), 401); assert.doesNotMatch(endedDuringGeneration.headers()["content-type"], /application\/pdf/);
+  const lastAttempt = (await db.query("select state,success,error_code from pdf_download_logs where user_id=$1 order by started_at desc limit 1", [users[2].id])).rows[0];
+  assert.deepEqual(lastAttempt, { state: "FAILED", success: false, error_code: "ACCESS_DENIED" });
+  await db.query("insert into auth.sessions(id,user_id) values($1,$2)", [sessionIds[2], users[2].id]);
+  console.log("PASS actual session row: valid signed JWT/user denied after logout, revoked admin blocked, session removed during generation prevents delivery and records a failed attempt.");
   // Even a correctly signed, unexpired JWT must not authorize a revoked session.
   if (!process.env.TEOREMA_PERFORMANCE_BASELINE) {
     revokedSessions.add(users[2].id);
@@ -628,6 +688,7 @@ try {
   await context.clearCookies();
   assert.equal((await context.request.get(origin + "/api/admin/pdf-licenses")).status(), 401);
   assert.equal((await context.request.get(origin + "/api/library")).status(), 401);
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[2] } })).status(), 401);
   await page.reload(); await page.waitForURL("**/login?next=**");
   assert.equal(new URL(page.url()).searchParams.get("next"), "/meus-materiais");
   console.log("PASS protected PDF download: pending/active/revoked library, private streamed personalized PDF, reusable license across updates, rejected forged identity/origin/GET, actual browser download, missing object, unsafe cache blocked, corrupt original/Storage outage, revoked license/grant, no original URLs, account isolation, logout and responsive 320/390/768/1440.");

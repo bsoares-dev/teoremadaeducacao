@@ -8,6 +8,7 @@ export async function cartDatabase({ legacyAuthTrigger = false, pdfBytes = null 
     create schema auth; create schema storage;
     create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb,created_at timestamptz default now(),
       email_confirmed_at timestamptz,deleted_at timestamptz,banned_until timestamptz,is_anonymous boolean default false);
+    create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz);
     create function auth.uid() returns uuid language sql as 'select nullif(current_setting(''request.jwt.claim.sub'',true),'''')::uuid';
     create table storage.buckets(id text primary key,name text,public boolean not null default false,file_size_limit bigint,allowed_mime_types text[]);
     create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets(id),name text,unique(bucket_id,name));

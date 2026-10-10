@@ -7,6 +7,7 @@ import { privateJson } from "./http";
 import { summarizeOrder } from "./orders";
 import { commerceDetail, type AccessRow } from "./admin-commerce-contract";
 import { pagination } from "./schemas";
+import { PdfSessionError } from "./pdf-download/session-contract";
 
 export class CommerceError extends Error {
   constructor(message: string, public status: number) { super(message); }
@@ -24,13 +25,14 @@ export async function commerceAdmin() {
   if (!access.allowed) throw new CommerceError("Acesso negado.", 403);
   const db = getSupabaseAdmin();
   commerceDbError((await db.rpc("teorema_admin_check", { p_actor_id: access.user.id })).error);
-  return { db, actor: access.user.id };
+  return { db, actor: access.user.id, supabase: access.supabase };
 }
 export async function commerceRoute(run: () => Promise<Response>) {
   try { return await run(); }
   catch (error) {
     if (error instanceof ZodError) return privateJson({ error: error.issues[0]?.message || "Dados inválidos." }, 400);
     if (error instanceof CommerceError) return privateJson({ error: error.message }, error.status);
+    if (error instanceof PdfSessionError) return privateJson({ error: error.message }, error.status);
     return privateJson({ error: "Resultado temporariamente indisponível. Atualize ou recupere a mesma tentativa." }, 503);
   }
 }
