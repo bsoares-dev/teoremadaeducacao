@@ -44,6 +44,7 @@ const revokedSessions = new Set();
 let dropResponse = false, droppedOperation = null;
 let dropOrderResponse = false;
 let dropDecisionResponse = false;
+let dropLicenseResponse = false;
 let originalReads = 0;
 let pdfCacheControl = "max-age=0";
 let storageUnavailable = false, corruptPdf = false;
@@ -91,6 +92,14 @@ const fixture = transportServer(async (req, res) => {
       else if (url.pathname.endsWith("/teorema_read_library")) value = await service(async tx => (await tx.query("select teorema_read_library($1,$2) as value", [body.p_user_id, body.p_page])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_resolve_pdf")) value = await service(async tx => (await tx.query("select teorema_resolve_pdf($1,$2) as value", [body.p_user_id, body.p_product_id])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_prepare_pdf_download")) value = await service(async tx => (await tx.query("select teorema_prepare_pdf_download($1,$2,$3,$4) as value", [body.p_user_id, body.p_product_id, body.p_license_code, body.p_license_id])).rows[0].value);
+      else if (url.pathname.endsWith("/teorema_begin_pdf_download")) value = await service(async tx => (await tx.query("select teorema_begin_pdf_download($1,$2,$3,$4,$5) value", [body.p_user_id, body.p_product_id, body.p_attempt_id, body.p_license_code, body.p_max_downloads])).rows[0].value);
+      else if (url.pathname.endsWith("/teorema_finish_pdf_download")) value = await service(async tx => (await tx.query("select teorema_finish_pdf_download($1,$2,$3,$4) value", [body.p_user_id, body.p_attempt_id, body.p_full_name, body.p_error_code])).rows[0].value);
+      else if (url.pathname.endsWith("/teorema_admin_pdf_licenses")) value = await service(async tx => (await tx.query("select teorema_admin_pdf_licenses($1,$2,$3,$4,$5) value", [body.p_actor_id, body.p_page, body.p_email, body.p_code, body.p_status])).rows[0].value);
+      else if (url.pathname.endsWith("/teorema_admin_pdf_history")) value = await service(async tx => (await tx.query("select teorema_admin_pdf_history($1,$2,$3) value", [body.p_actor_id, body.p_license_id, body.p_page])).rows[0].value);
+      else if (url.pathname.endsWith("/teorema_set_pdf_license_state")) {
+        value = await service(async tx => (await tx.query("select teorema_set_pdf_license_state($1,$2,$3,$4,$5,$6) value", [body.p_actor_id, body.p_license_id, body.p_state, body.p_reason, body.p_operation_id, body.p_expected_updated_at])).rows[0].value);
+        if (dropLicenseResponse) { dropLicenseResponse = false; res.writeHead(503); res.end(JSON.stringify({ code: "08006", message: "Lost license decision response" })); return; }
+      }
       else if (url.pathname.endsWith("/teorema_read_cart")) value = await service(async tx => (await tx.query("select teorema_read_cart($1) as value", [body.p_user_id])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_sync_cart")) {
         value = await service(async tx => (await tx.query("select teorema_sync_cart($1,$2,$3,$4,$5,$6) as value", [body.p_user_id, body.p_operation_id, body.p_cart_id, body.p_revision, body.p_add_ids, body.p_remove_ids])).rows[0].value);
@@ -136,7 +145,7 @@ const fixture = transportServer(async (req, res) => {
 await new Promise(resolve => fixture.listen(54142, "127.0.0.1", resolve));
 const fixtureEnv = { ...process.env, NODE_ENV: productionBuild ? "production" : "development", VERCEL_ENV: "preview",
     ...(productionBuild ? { NODE_EXTRA_CA_CERTS: process.env.TEOREMA_FIXTURE_TLS_CERT } : {}),
-    TEOREMA_CATALOG_SELECTION_ENABLED: "true", TEOREMA_CART_ENABLED: "true", NEXT_PUBLIC_SUPABASE_URL: api,
+    TEOREMA_CATALOG_SELECTION_ENABLED: "true", TEOREMA_CART_ENABLED: "true", PDF_MAX_DOWNLOADS: "0", NEXT_PUBLIC_SUPABASE_URL: api,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "local-public-fixture", SUPABASE_SERVICE_ROLE_KEY: serviceKey };
 let output = "", browser, child;
 try {
@@ -409,6 +418,7 @@ try {
   await page.getByRole("button", { name: "Revogar acesso", exact: true }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Revogar acesso", exact: true }).isDisabled(), true);
   console.log("PASS stage 7: verified admin, payment checkbox, lost confirmation recovery after reload, one audit/no duplicate grants, all PDFs for correct customer, revoke/restore, unpublished access preserved, customer filter, cancel without grants, forged actor/origin/foreign grant rejected, responsive dashboard.");
+  const adminCookies = await context.cookies();
   // Library: own account -> server authorization -> personalized PDF bytes only.
   await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("alice@example.test"); await ready();
   await page.goto(origin + "/perfil");
@@ -521,10 +531,58 @@ try {
   }
   storageUnavailable = false; corruptPdf = false;
   const issuedLicense = (await service(tx => tx.query("select id from pdf_licenses where user_id=$1 and product_id=$2", [users[1].id, ids[0]]))).rows[0].id;
-  await service(tx => tx.query("update pdf_licenses set status='revoked' where id=$1", [issuedLicense]));
+  assert.equal((await context.request.get(origin + "/api/admin/pdf-licenses")).status(), 403);
+  assert.equal((await context.request.post(origin + "/api/admin/pdf-licenses/" + issuedLicense, { headers: { Origin: origin }, data: {} })).status(), 403);
+  const licenseContext = await browser.newContext({ viewport: { width: 1440, height: 1000 }, ignoreHTTPSErrors: productionBuild });
+  await licenseContext.addCookies(adminCookies);
+  const licensePage = await licenseContext.newPage(); licensePage.setDefaultTimeout(30000);
+  licensePage.on("pageerror", error => errors.push(error.message));
+  await licensePage.goto(origin + "/admin");
+  await licensePage.getByRole("button", { name: "Licenças de PDFs", exact: true }).click();
+  await licensePage.getByRole("button", { name: "Revogar licença", exact: true }).waitFor();
+  assert.match(await licensePage.locator(".commerce-list").innerText(), /5 downloads autorizados/);
+  assert.match(await licensePage.locator(".commerce-list").innerText(), /Débora França/);
+  const adminLicenseList = await licenseContext.request.get(origin + "/api/admin/pdf-licenses");
+  assert.equal(adminLicenseList.status(), 200); assert.equal(adminLicenseList.headers()["cache-control"], "private, no-store");
+  const listed = (await adminLicenseList.json()).items[0]; assert.equal(listed.downloads, 5);
+  assert.doesNotMatch(JSON.stringify(listed), /object_key|file_id|cpf|phone|token|secret/);
+  assert.equal((await licenseContext.request.post(origin + "/api/admin/pdf-licenses/" + issuedLicense, { headers: { Origin: "https://other.test" }, data: {} })).status(), 400);
+  assert.equal((await licenseContext.request.post(origin + "/api/admin/pdf-licenses/" + issuedLicense, { headers: { Origin: origin }, data: { state: "revoked", reason: "Revisão sintética", operationId: crypto.randomUUID(), expectedUpdatedAt: listed.updatedAt, actorId: users[0].id } })).status(), 400);
+  await licensePage.getByRole("button", { name: "Ver histórico", exact: true }).click();
+  await licensePage.getByText("Licença criada", { exact: true }).waitFor();
+  await licensePage.getByRole("button", { name: "Revogar licença", exact: true }).click();
+  await licensePage.getByRole("dialog").getByLabel("Motivo da decisão", { exact: true }).fill("Revisão sintética da licença");
+  dropLicenseResponse = true;
+  await licensePage.getByRole("dialog").getByRole("button", { name: "Confirmar decisão", exact: true }).click();
+  await licensePage.getByRole("button", { name: "Recuperar decisão da licença", exact: true }).waitFor();
+  await licensePage.reload(); await licensePage.getByRole("button", { name: "Licenças de PDFs", exact: true }).click();
+  await licensePage.getByRole("button", { name: "Recuperar decisão da licença", exact: true }).click();
+  await licensePage.getByText("Decisão registrada. Confira o estado atual e o histórico.", { exact: true }).waitFor();
+  await licensePage.getByRole("button", { name: "Reativar licença", exact: true }).waitFor();
+  assert.equal((await db.query("select count(*)::int n from pdf_license_events where license_id=$1 and event='LICENSE_REVOKED'", [issuedLicense])).rows[0].n, 1);
   const deniedLicense = await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } });
   assert.equal(deniedLicense.status(), 403); assert.equal((await deniedLicense.json()).code, "LICENSE_REVOKED");
-  await service(tx => tx.query("update pdf_licenses set status='active' where id=$1", [issuedLicense]));
+  await licensePage.getByRole("button", { name: "Reativar licença", exact: true }).click();
+  await licensePage.getByRole("dialog").getByLabel("Motivo da decisão", { exact: true }).fill("Compra conferida em teste sintético");
+  await licensePage.getByRole("dialog").getByRole("button", { name: "Confirmar decisão", exact: true }).click();
+  await licensePage.getByRole("button", { name: "Revogar licença", exact: true }).waitFor();
+  await licensePage.getByRole("button", { name: "Ver histórico", exact: true }).click();
+  await licensePage.getByText("Licença reativada", { exact: true }).waitFor();
+  await mkdir(".data/pdf-license-check", { recursive: true });
+  for (const width of [320, 390, 768, 1440]) {
+    await licensePage.setViewportSize({ width, height: 900 });
+    assert.equal(await licensePage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `License panel overflow ${width}`);
+    if (width === 390 || width === 1440) await licensePage.screenshot({ path: `.data/pdf-license-check/${width}.png`, fullPage: true });
+  }
+  const countBeforeRestore = (await db.query("select count(*)::int n from pdf_download_logs where license_id=$1 and success", [issuedLicense])).rows[0].n;
+  assert.equal(countBeforeRestore, 5);
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 200, "Reactivated license downloads again");
+  await licensePage.evaluate(actor => sessionStorage.setItem('teorema:pdf-license-decision:v1:' + actor, '{broken'), users[0].id);
+  await licensePage.reload(); await licensePage.getByRole("button", { name: "Licenças de PDFs", exact: true }).click();
+  await licensePage.getByText(/Tentativa pendente ilegível/).waitFor();
+  assert.equal(await licensePage.getByRole("button", { name: "Revogar licença", exact: true }).isDisabled(), true);
+  await licenseContext.close();
+  console.log("PASS PDF controls UI: server-authorized license list/history, generation counts/failures, revoke + lost-response recovery across reload with one event, denied copy, restore preserving license/count, forged actor/origin/customer admin endpoint rejected, corrupted journal blocked, responsive 320/390/768/1440.");
   await db.query("delete from storage.objects where name=$1", [updatedKey]);
   await page.getByRole("button", { name: "Atualizar biblioteca", exact: true }).click();
   await page.getByText(/Você possui acesso, mas o arquivo está temporariamente indisponível/).waitFor();
@@ -568,6 +626,7 @@ try {
     revokedSessions.delete(users[2].id);
   }
   await context.clearCookies();
+  assert.equal((await context.request.get(origin + "/api/admin/pdf-licenses")).status(), 401);
   assert.equal((await context.request.get(origin + "/api/library")).status(), 401);
   await page.reload(); await page.waitForURL("**/login?next=**");
   assert.equal(new URL(page.url()).searchParams.get("next"), "/meus-materiais");

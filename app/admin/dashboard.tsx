@@ -8,10 +8,11 @@ import { LogoutButton } from "@/app/components/session-controls";
 const loadingTab = () => <p role="status">Carregando...</p>;
 const ProductsManager = dynamic(() => import("./products-manager"), { loading: loadingTab });
 const CommerceManager = dynamic(() => import("./commerce-manager"), { loading: loadingTab });
+const PdfLicenseManager = dynamic(() => import("./pdf-license-manager"), { loading: loadingTab });
 
 type Profile = { id: string; email: string; cpf: string; phone: string; created_at: string };
 
-type Tab = "users" | "products" | "commerce";
+type Tab = "users" | "products" | "commerce" | "licenses";
 export default function AdminDashboard({ actorId, commerceEnabled }: { actorId: string; commerceEnabled: boolean }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("users");
@@ -54,14 +55,15 @@ export default function AdminDashboard({ actorId, commerceEnabled }: { actorId: 
         <button disabled={commerceBusy} className={tab === "users" ? "active" : ""} aria-current={tab === "users" ? "page" : undefined} onClick={() => changeTab("users")}>Usuários</button>
         <button disabled={commerceBusy} className={tab === "products" ? "active" : ""} aria-current={tab === "products" ? "page" : undefined} onClick={() => changeTab("products")}>Produtos</button>
         {commerceEnabled && <button disabled={commerceBusy} className={tab === "commerce" ? "active" : ""} aria-current={tab === "commerce" ? "page" : undefined} onClick={() => changeTab("commerce")}>Pedidos e acessos</button>}
+        {commerceEnabled && <button disabled={commerceBusy} className={tab === "licenses" ? "active" : ""} aria-current={tab === "licenses" ? "page" : undefined} onClick={() => changeTab("licenses")}>Licenças de PDFs</button>}
       </nav>
       <Link href="/perfil">Meu perfil</Link><Link href="/materiais">Ver catálogo</Link><LogoutButton />
     </aside>
     <section className="dashboard-content" aria-busy={loading}>
-      <p className="eyebrow">{tab === "users" ? "Contas" : tab === "products" ? "Catálogo" : "Atendimento e liberações"}</p>
-      <h2>{tab === "users" ? "Usuários" : tab === "products" ? "Produtos" : "Pedidos e acessos"}</h2>
-      <p className="dashboard-description">{tab === "users" ? "Contas cadastradas na plataforma." : tab === "products" ? "Prepare rascunhos, valide seus PDFs e escolha quando cada material entra no catálogo." : "Confira o pedido salvo, confirme o pagamento e acompanhe os acessos dos clientes."}</p>
-      {tab === "commerce" ? <CommerceManager actorId={actorId} onBusyChange={setCommerceBusy} /> : tab === "products" ? <ProductsManager /> : <>
+      <p className="eyebrow">{tab === "users" ? "Contas" : tab === "products" ? "Catálogo" : tab === "licenses" ? "Distribuição protegida" : "Atendimento e liberações"}</p>
+      <h2>{tab === "users" ? "Usuários" : tab === "products" ? "Produtos" : tab === "licenses" ? "Licenças de PDFs" : "Pedidos e acessos"}</h2>
+      <p className="dashboard-description">{tab === "users" ? "Contas cadastradas na plataforma." : tab === "products" ? "Prepare rascunhos, valide seus PDFs e escolha quando cada material entra no catálogo." : tab === "licenses" ? "Acompanhe os downloads autorizados e controle cada licença sem alterar a compra original." : "Confira o pedido salvo, confirme o pagamento e acompanhe os acessos dos clientes."}</p>
+      {tab === "licenses" ? <PdfLicenseManager actorId={actorId} onBusyChange={setCommerceBusy} /> : tab === "commerce" ? <CommerceManager actorId={actorId} onBusyChange={setCommerceBusy} /> : tab === "products" ? <ProductsManager /> : <>
       {error && <div className="account-notice error" role="alert"><p>{error}</p><button onClick={() => setRevision(v => v + 1)}>Atualizar lista</button></div>}
       {loading ? <p role="status">Carregando...</p> : !error && <>
         <div className="dashboard-table-wrap"><table>
