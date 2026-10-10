@@ -1,7 +1,11 @@
 import { downloadInput } from "@/lib/library-contract";
-import { libraryAuth, libraryRoute, downloadTicket, LibraryError } from "@/lib/library";
-import { privateJson, readJson } from "@/lib/http";
+import { libraryAuth, libraryRoute, LibraryError } from "@/lib/library";
+import { readJson } from "@/lib/http";
 import { consumeRequest } from "@/lib/request-limits";
+import { downloadPersonalizedPdf } from "@/lib/pdf-download/service";
+import { personalizedPdfResponse } from "@/lib/pdf-download/response";
+
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   return libraryRoute(async () => {
@@ -10,9 +14,6 @@ export async function POST(request: Request) {
     try { raw = await readJson(request); } catch { throw new LibraryError("Formato ou origem da requisição inválida.", 400); }
     const { productId } = downloadInput.parse(raw);
     await consumeRequest(db, user.id, "PDF_DOWNLOAD");
-    const response = privateJson(await downloadTicket(db, user.id, productId));
-    response.headers.set("Referrer-Policy", "no-referrer");
-    response.headers.set("X-Content-Type-Options", "nosniff");
-    return response;
+    return personalizedPdfResponse(await downloadPersonalizedPdf(db, user, productId, request.signal));
   });
 }

@@ -41,6 +41,11 @@ async function api(context, path, data, expected = 200) {
   assert.equal(response.status(), expected, `API ${path.split("?")[0]} status`);
   assert.match(response.headers()["cache-control"] || "", /no-store/, "Private API cache");
   assert.match(response.headers()["x-robots-tag"] || "", /noindex/, "Private API noindex");
+  if (response.headers()["content-type"] === "application/pdf") {
+    const bytes = await response.body(), pdf = await PDFDocument.load(bytes);
+    assert.match(pdf.getSubject(), /^Licensed copy: LIC-[0-9A-F]{32}$/);
+    return { bytes, version: Number(response.headers()["x-material-version"]), subject: pdf.getSubject() };
+  }
   return response.json();
 }
 async function pdfBytes(label) {
@@ -173,7 +178,7 @@ try {
   for (const suffix of ["a", "b"]) {
     const email = `homologacao-etapa9-${runId.slice(0, 8)}-${suffix}@example.test`, password = randomBytes(24).toString("base64url");
     const data = checked(await db.auth.admin.createUser({ email, password, email_confirm: false,
-      user_metadata: { cpf: cpf(String(Math.floor(100000000 + Math.random() * 800000000))), phone: "48900000000", role: "admin", purpose: "HOMOLOGACAO_ETAPA9" } }), "Test-only account create");
+      user_metadata: { full_name: suffix === "a" ? "João da Silva" : "Débora França", cpf: cpf(String(Math.floor(100000000 + Math.random() * 800000000))), phone: "48900000000", role: "admin", purpose: "HOMOLOGACAO_ETAPA9" } }), "Test-only account create");
     manifest.users.push(data.user.id); await save();
     const profile = checked(await db.from("profiles").select("id,cpf,phone").eq("id", data.user.id).single(), "Signup trigger/profile");
     assert.ok(profile.cpf && profile.phone, "Auth trigger persisted normalized profile");
@@ -229,27 +234,28 @@ try {
   const download = alice.waitForEvent("download"); await alice.getByRole("button", { name: /^Baixar PDF:/ }).first().click();
   const received = await download, stream = await received.createReadStream(), chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
-  assert.ok([...versions.values()].some(v => v.hash === hash(Buffer.concat(chunks))), "Actual browser downloaded the validated private bytes");
+  assert.ok([...versions.values()].every(v => v.hash !== hash(Buffer.concat(chunks))), "Browser receives personalized bytes, never the original");
+  assert.match((await PDFDocument.load(Buffer.concat(chunks))).getSubject(), /^Licensed copy: LIC-[0-9A-F]{32}$/);
   const productId = manifest.products[0];
   await api(bobContext, "/api/library/download", { productId }, 403);
   const oldFile = checked(await db.rpc("teorema_resolve_pdf", { p_user_id: customers[0].id, p_product_id: productId }), "Current test PDF");
   assert.ok((await customers[0].client.storage.from("teorema-pdfs").createSignedUrl(oldFile.object_key, 60)).error, "Even entitled customers cannot sign directly in Storage");
   const anonymous = await fetch(url + "/storage/v1/object/public/teorema-pdfs/" + oldFile.object_key);
   assert.ok(!anonymous.ok, "PDF is not publicly downloadable");
-  const ticket = await api(aliceContext, "/api/library/download", { productId });
-  assert.equal(hash(await (await fetch(ticket.url)).arrayBuffer()), versions.get(productId).hash);
+  const copy = await api(aliceContext, "/api/library/download", { productId });
+  assert.notEqual(hash(copy.bytes), versions.get(productId).hash);
   const card = admin.locator(".product-list article").filter({ hasText: `[HOMOLOGACAO] etapa9-${runId.slice(0, 8)} material 1` });
   await card.getByRole("button", { name: "Gerenciar material", exact: true }).click();
   const v2 = await pdfBytes("Test material 1, version 2, purchased access includes updates");
   await upload(admin, "PDF", v2, "homologacao-v2");
   const updated = await api(aliceContext, "/api/library/download", { productId });
-  assert.equal(updated.version, 2); assert.equal(hash(await (await fetch(updated.url)).arrayBuffer()), hash(v2));
+  assert.equal(updated.version, 2); assert.notEqual(hash(updated.bytes), hash(v2)); assert.equal(updated.subject, copy.subject);
   await state(adminContext, productId, "UNPUBLISHED");
   assert.equal((await api(aliceContext, "/api/library/download", { productId })).version, 2);
   const grant = grants.find(g => g.product_id === productId);
   await api(adminContext, `/api/admin/orders/${order.id}`, { action: "access", grantId: grant.id, state: "REVOGADO", reason: "Encerramento do ensaio de homologacao etapa 9", operationId: randomUUID() });
   await api(aliceContext, "/api/library/download", { productId }, 403);
-  assert.ok((await fetch(updated.url)).ok, "Issued token can remain valid before expiry after revocation");
+  assert.equal(updated.url, undefined, "No original bearer URL was issued");
   await pass("Real concurrent admin confirmation grants all items once; private browser download, Storage denial, version update, unpublication and revocation");
   stage = "persistent account budgets";
   // Saturate ONLY the new synthetic account; concurrent real Postgres connections.
@@ -261,7 +267,7 @@ try {
   assert.equal((await blocked.json()).url, undefined);
   assert.equal((await api(aliceContext, "/api/library")).items.length, 2, "Other account/action unaffected");
   await pass("Real concurrent database budget, private HTTP 429/Retry-After without signed URL, account/action isolation");
-  stage = "responsive/private-cache/token-expiry";
+  stage = "responsive/private-cache/no-original-ticket";
   for (const width of [320, 390, 768, 1440]) {
     for (const page of [alice, bob]) {
       await page.setViewportSize({ width, height: 900 });
@@ -271,15 +277,13 @@ try {
   }
   assert.ok(!await alice.evaluate(() => [...Object.values(localStorage), ...Object.values(sessionStorage)].some(v => v.includes('/object/sign/'))), "Signed links are not persisted");
   assert.deepEqual(errors, []); assert.deepEqual(policies, []);
-  console.log("Waiting for the 60-second private token to expire (not a publication).");
-  const remaining = Math.max(0, new Date(updated.expiresAt).getTime() - Date.now() + 6000);
-  await new Promise(resolve => setTimeout(resolve, remaining));
-  assert.ok(!(await fetch(updated.url, { cache: "no-store" })).ok, "Real Storage token expiry");
+  console.log("Verifying personalized delivery has no original bearer token (not a publication).");
+  assert.equal(copy.url, undefined); assert.equal(updated.expiresAt, undefined, "Personalized delivery does not issue original tokens");
   await alice.goto(origin + "/perfil"); await alice.getByRole("button", { name: "Sair", exact: true }).click(); await alice.waitForURL(origin + "/login");
   await api(aliceContext, "/api/library", undefined, 401);
   const afterOriginal = checked(await db.from("products").select("id,name,description,price,image_url,is_active,publication_status,revision").in("id", original.map(p => p.id)).order("id"), "Original product recheck");
   assert.equal(hash(JSON.stringify(afterOriginal)), originalHash, "Pre-existing product unchanged");
-  await pass("Four viewport widths, no browser/CSP runtime failures, no persisted bearer URLs, real token expiry, logout and preserved original product");
+  await pass("Four viewport widths, no browser/CSP runtime failures, no original bearer URLs, logout and preserved original product");
   manifest.complete = true;
 } catch (error) {
   manifest.failure = { stage, kind: error?.name || "Error" };

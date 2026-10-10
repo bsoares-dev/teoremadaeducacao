@@ -12,9 +12,10 @@ const nextConfig = {
       search: "",
     }] : [],
   },
-  serverExternalPackages: ["pdf-lib", "sharp"],
+  serverExternalPackages: ["pdf-lib", "@pdf-lib/fontkit", "sharp"],
   outputFileTracingIncludes: {
     "/api/admin/products/*/uploads/*": ["./lib/pdf-validation-worker.cjs", "./node_modules/pdf-lib/**/*", "./node_modules/@pdf-lib/**/*", "./node_modules/pako/**/*", "./node_modules/tslib/**/*"],
+    "/api/library/download": ["./assets/pdf/NotoSans-Regular.ttf", "./lib/pdf-validation-worker.cjs", "./node_modules/pdf-lib/**/*", "./node_modules/@pdf-lib/**/*", "./node_modules/pako/**/*", "./node_modules/tslib/**/*"],
   },
 };
 export default nextConfig;

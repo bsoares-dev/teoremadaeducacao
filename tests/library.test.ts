@@ -2,20 +2,17 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { Transaction } from "@electric-sql/pglite";
-import { downloadInput, DOWNLOAD_TTL, pdfFilename, validateDownloadUrl, libraryPage } from "../lib/library-contract";
+import { downloadInput, pdfFilename, libraryPage } from "../lib/library-contract";
 // Shared fixture runs the full migration set on an isolated PostgreSQL engine.
 import { cartDatabase } from "../scripts/fixtures/cart-database.mjs";
 
 test("download contract rejects forged identities/paths, unsafe URLs and unsafe filenames", () => {
-  const product = randomUUID(), file = randomUUID(), origin = "https://example.supabase.co";
+  const product = randomUUID();
   assert.deepEqual(downloadInput.parse({ productId: product }), { productId: product });
   for (const input of [{ productId: product, userId: randomUUID() }, { productId: product, path: "other.pdf" }, { productId: "../etc" }]) assert.equal(downloadInput.safeParse(input).success, false);
-  const valid = `${origin}/storage/v1/object/sign/teorema-pdfs/products/${product}/${file}.pdf?token=fixture&download=material.pdf`;
-  assert.equal(validateDownloadUrl(valid, origin, product, file), valid);
-  for (const value of [valid.replace(origin, "https://attacker.test"), valid.replace("/sign/", "/public/"), valid.replace(product, randomUUID()), valid.replace(file, randomUUID()), valid.replace("?token=fixture", "?other=fixture"), valid + "#payload"]) assert.throws(() => validateDownloadUrl(value, origin, product, file));
   assert.equal(pdfFilename('Ação / leitura\r\n<script>.pdf'), "Acao-leitura-script-pdf.pdf");
   assert.equal(pdfFilename("🚫"), "material-teorema.pdf");
-  assert.equal(DOWNLOAD_TTL, 60);
+  assert.equal(pdfFilename(`joao@example.test ${randomUUID()}`), "material-teorema.pdf");
 });
 
 test("library is scoped, unique per product, follows current version and keeps other valid purchase origins", async () => {

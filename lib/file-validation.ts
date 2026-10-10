@@ -5,7 +5,9 @@ import sharp from "sharp";
 export function validatePdf(bytes: Uint8Array, timeoutMs = 15000): Promise<{ pages: number }> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(join(process.cwd(), "lib/pdf-validation-worker.cjs"), {
-      workerData: bytes, resourceLimits: { maxOldGenerationSizeMb: 256, maxYoungGenerationSizeMb: 32, stackSizeMb: 4 },
+      // Turbopack adds its worker globals to this object. An explicit envelope
+      // preserves the typed array instead of spreading its numeric entries.
+      workerData: { bytes }, resourceLimits: { maxOldGenerationSizeMb: 256, maxYoungGenerationSizeMb: 32, stackSizeMb: 4 },
     });
     let settled = false;
     const finish = (error?: Error, result?: { pages: number }) => {

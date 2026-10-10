@@ -1,8 +1,8 @@
 import { PGlite } from "@electric-sql/pglite";
 import { readFile, readdir } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 
-export async function cartDatabase({ legacyAuthTrigger = false } = {}) {
+export async function cartDatabase({ legacyAuthTrigger = false, pdfBytes = null } = {}) {
   const db = new PGlite();
   await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create schema storage;
@@ -46,7 +46,7 @@ export async function cartDatabase({ legacyAuthTrigger = false } = {}) {
     await service(async tx => {
       await tx.query("insert into products(id,name,description,price,image_url,is_active,publication_status) values($1,$2,'Material sintético para testar o carrinho.',39.90,'',false,'DRAFT')", [ids[i], `Material de estudo ${i + 1}`]);
       const file = randomUUID(), key = `products/${ids[i]}/${file}.pdf`;
-      await tx.query("insert into product_files(id,product_id,version,version_label,object_key,size_bytes,mime_type,sha256,validation_status,validated_at,is_current,uploaded_by) values($1,$2,1,'1.0',$3,100,'application/pdf',$4,'VALIDATED',now(),true,$5)", [file, ids[i], key, "a".repeat(64), users[0].id]);
+      await tx.query("insert into product_files(id,product_id,version,version_label,object_key,size_bytes,mime_type,sha256,validation_status,validated_at,is_current,uploaded_by) values($1,$2,1,'1.0',$3,$4,'application/pdf',$5,'VALIDATED',now(),true,$6)", [file, ids[i], key, pdfBytes?.length || 100, pdfBytes ? createHash("sha256").update(pdfBytes).digest("hex") : "a".repeat(64), users[0].id]);
       await tx.query("insert into storage.objects(bucket_id,name) values('teorema-pdfs',$1)", [key]);
       await tx.query("update products set is_active=true,publication_status='PUBLISHED' where id=$1", [ids[i]]);
     });

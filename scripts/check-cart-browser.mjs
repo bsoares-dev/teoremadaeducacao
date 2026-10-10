@@ -2,9 +2,10 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
-import { generateKeyPairSync, sign } from "node:crypto";
+import { generateKeyPairSync, sign, createHash } from "node:crypto";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { cartDatabase } from "./fixtures/cart-database.mjs";
 import { fixtureSelect, fixtureTables } from "./fixtures/rest-select.mjs";
@@ -17,7 +18,15 @@ const transportServer = productionBuild ? createHttpsServer.bind(null, {
   cert: await readFile(process.env.TEOREMA_FIXTURE_TLS_CERT),
   key: await readFile(process.env.TEOREMA_FIXTURE_TLS_KEY),
 }) : createServer;
-const { db, users, ids, service } = await cartDatabase();
+const originalDocument = await PDFDocument.create();
+const originalFont = await originalDocument.embedFont(StandardFonts.Helvetica);
+for (const size of [[595, 842], [842, 595]]) {
+  const originalPage = originalDocument.addPage(size);
+  originalPage.drawText("Material sintetico - conteudo preservado", { x: 70, y: size[1] - 90, font: originalFont, size: 18 });
+}
+const privatePdf = await originalDocument.save();
+const hashPdf = bytes => createHash("sha256").update(bytes).digest("hex");
+const { db, users, ids, service } = await cartDatabase({ pdfBytes: privatePdf });
 const origin = "http://localhost:3105", api = `${productionBuild ? "https" : "http"}://127.0.0.1:54142`, serviceKey = "local-service-fixture";
 const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
 const jwk = { ...publicKey.export({ format: "jwk" }), kid: "fixture-signing-key", alg: "ES256", use: "sig" };
@@ -35,8 +44,9 @@ const revokedSessions = new Set();
 let dropResponse = false, droppedOperation = null;
 let dropOrderResponse = false;
 let dropDecisionResponse = false;
-const signedDownloads = new Map();
+let originalReads = 0;
 let pdfCacheControl = "max-age=0";
+let storageUnavailable = false, corruptPdf = false;
 const fixture = transportServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Access-Control-Allow-Headers", "authorization,apikey,content-type,x-client-info,x-supabase-api-version");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -62,24 +72,17 @@ const fixture = transportServer(async (req, res) => {
     if (url.pathname === "/auth/v1/verify") { res.end(JSON.stringify(sessions[1])); return; }
     if (url.pathname === "/auth/v1/logout") { res.writeHead(204); res.end(); return; }
     if (url.pathname.startsWith("/storage/v1/object/")) {
-      const match = url.pathname.match(/^\/storage\/v1\/object\/(info|sign)\/teorema-pdfs\/(.+)$/);
+      const match = url.pathname.match(/^\/storage\/v1\/object\/(?:(info)\/)?teorema-pdfs\/(.+)$/);
       if (!match) { res.writeHead(404); res.end("{}"); return; }
       const [, action, key] = match;
-      if (action === "sign" && req.method === "GET") {
-        const ticket = signedDownloads.get(url.searchParams.get("token"));
-        if (!ticket || ticket.key !== key || ticket.expiresAt <= Date.now()) { res.writeHead(403); res.end('{"message":"Expired fixture URL"}'); return; }
-        res.setHeader("Content-Type", "application/pdf");
-        res.setHeader("Content-Disposition", `attachment; filename="${url.searchParams.get('download') || 'material.pdf'}"`);
-        res.setHeader("Cache-Control", "private, no-store");
-        const pdf = Buffer.alloc(100, 32); pdf.write("%PDF-1.7\nFixture download only\n%%EOF"); res.end(pdf); return;
-      }
-      assert.equal(token, serviceKey, "Storage metadata/signing must use server credentials");
+      if (token !== serviceKey) { res.writeHead(403); res.end('{"message":"Server required"}'); return; }
+      if (storageUnavailable) { res.writeHead(503); res.end('{"message":"Storage unavailable"}'); return; }
       const file = (await service(tx => tx.query("select f.size_bytes from product_files f join storage.objects o on o.bucket_id=f.bucket_id and o.name=f.object_key where f.object_key=$1", [key]))).rows[0];
       if (!file) { res.writeHead(404); res.end('{"message":"Missing fixture object"}'); return; }
       if (action === "info") { res.end(JSON.stringify({ size: Number(file.size_bytes), content_type: "application/pdf", cache_control: pdfCacheControl })); return; }
-      assert.equal(req.method, "POST"); assert.equal(body.expiresIn, 60);
-      const signedToken = crypto.randomUUID(); signedDownloads.set(signedToken, { key, expiresAt: Date.now() + 60000 });
-      res.end(JSON.stringify({ signedURL: `/object/sign/teorema-pdfs/${key}?token=${signedToken}` })); return;
+      assert.equal(req.method, "GET"); originalReads++;
+      res.setHeader("Content-Type", "application/pdf"); res.setHeader("Cache-Control", "private, no-store");
+      res.end(corruptPdf ? Buffer.alloc(privatePdf.length, 65) : privatePdf); return;
     }
     if (url.pathname.startsWith("/rest/v1/rpc/")) {
       assert.equal(token, serviceKey, "RPC must use server credentials");
@@ -87,6 +90,7 @@ const fixture = transportServer(async (req, res) => {
       if (url.pathname.endsWith("/teorema_consume_request")) value = await service(async tx => (await tx.query("select teorema_consume_request($1,$2) as value", [body.p_user_id, body.p_action])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_read_library")) value = await service(async tx => (await tx.query("select teorema_read_library($1,$2) as value", [body.p_user_id, body.p_page])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_resolve_pdf")) value = await service(async tx => (await tx.query("select teorema_resolve_pdf($1,$2) as value", [body.p_user_id, body.p_product_id])).rows[0].value);
+      else if (url.pathname.endsWith("/teorema_prepare_pdf_download")) value = await service(async tx => (await tx.query("select teorema_prepare_pdf_download($1,$2,$3,$4) as value", [body.p_user_id, body.p_product_id, body.p_license_code, body.p_license_id])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_read_cart")) value = await service(async tx => (await tx.query("select teorema_read_cart($1) as value", [body.p_user_id])).rows[0].value);
       else if (url.pathname.endsWith("/teorema_sync_cart")) {
         value = await service(async tx => (await tx.query("select teorema_sync_cart($1,$2,$3,$4,$5,$6) as value", [body.p_user_id, body.p_operation_id, body.p_cart_id, body.p_revision, body.p_add_ids, body.p_remove_ids])).rows[0].value);
@@ -405,7 +409,7 @@ try {
   await page.getByRole("button", { name: "Revogar acesso", exact: true }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Revogar acesso", exact: true }).isDisabled(), true);
   console.log("PASS stage 7: verified admin, payment checkbox, lost confirmation recovery after reload, one audit/no duplicate grants, all PDFs for correct customer, revoke/restore, unpublished access preserved, customer filter, cancel without grants, forged actor/origin/foreign grant rejected, responsive dashboard.");
-  // Stage 8: account -> own library -> server authorization -> short Storage link.
+  // Library: own account -> server authorization -> personalized PDF bytes only.
   await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("alice@example.test"); await ready();
   await page.goto(origin + "/perfil");
   await page.getByRole("heading", { name: "Minha conta", exact: true }).waitFor();
@@ -468,9 +472,19 @@ try {
   assert.doesNotMatch(await ownLibrary.text(), /object_key|bucket_id|sha256|reason|granted_by|cpf|token/);
   const ticketResponse = await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } });
   assert.equal(ticketResponse.status(), 200, ticketResponse.status() === 200 ? undefined : await ticketResponse.text()); assert.match(ticketResponse.headers()["cache-control"], /no-store/);
-  const ticket = await ticketResponse.json();
-  assert.equal(ticket.version, 1); assert.ok(Date.parse(ticket.expiresAt) - Date.now() <= 60000);
-  assert.equal((await context.request.get(ticket.url)).status(), 200);
+  assert.equal(ticketResponse.headers()["content-type"], "application/pdf");
+  assert.equal(ticketResponse.headers()["x-material-version"], "1");
+  const personalizedBytes = await ticketResponse.body(), personalizedDocument = await PDFDocument.load(personalizedBytes);
+  assert.notEqual(hashPdf(personalizedBytes), hashPdf(privatePdf), "Original must never be returned");
+  assert.equal(personalizedDocument.getPageCount(), 2);
+  const licenseSubject = personalizedDocument.getSubject(); assert.match(licenseSubject, /^Licensed copy: LIC-[0-9A-F]{32}$/);
+  const repeated = await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } });
+  assert.equal((await PDFDocument.load(await repeated.body())).getSubject(), licenseSubject);
+  await mkdir(".data/library-check", { recursive: true });
+  await writeFile(".data/library-check/personalized-download.pdf", personalizedBytes);
+  const originalKey = (await service(tx => tx.query("select object_key from product_files where product_id=$1 and is_current", [ids[0]]))).rows[0].object_key;
+  assert.equal((await context.request.get(api + "/storage/v1/object/teorema-pdfs/" + originalKey)).status(), 403);
+  assert.equal((await context.request.get(api + "/storage/v1/object/public/teorema-pdfs/" + originalKey)).status(), 404);
   assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[2] } })).status(), 403);
   assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0], userId: users[2].id } })).status(), 400);
   assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: "https://other.test" }, data: { productId: ids[0] } })).status(), 400);
@@ -489,35 +503,45 @@ try {
   const updatedFile = crypto.randomUUID(), updatedKey = `products/${ids[0]}/${updatedFile}.pdf`;
   await service(async tx => {
     await tx.query("update product_files set is_current=false where product_id=$1", [ids[0]]);
-    await tx.query("insert into product_files(id,product_id,version,version_label,object_key,size_bytes,mime_type,sha256,validation_status,validated_at,is_current,uploaded_by) values($1,$2,2,'2.0',$3,100,'application/pdf',$4,'VALIDATED',now(),true,$5)", [updatedFile, ids[0], updatedKey, "b".repeat(64), users[0].id]);
+    await tx.query("insert into product_files(id,product_id,version,version_label,object_key,size_bytes,mime_type,sha256,validation_status,validated_at,is_current,uploaded_by) values($1,$2,2,'2.0',$3,$4,'application/pdf',$5,'VALIDATED',now(),true,$6)", [updatedFile, ids[0], updatedKey, privatePdf.length, hashPdf(privatePdf), users[0].id]);
     await tx.query("insert into storage.objects(bucket_id,name) values('teorema-pdfs',$1)", [updatedKey]);
   });
   await page.getByRole("button", { name: "Atualizar biblioteca", exact: true }).click();
   await page.getByText(/Versão 2.0/).waitFor(); await downloadFromCard("2.0");
-  const currentTicket = await (await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).json();
-  assert.ok(new URL(currentTicket.url).pathname.endsWith(updatedFile + ".pdf"));
-  const issued = signedDownloads.size; pdfCacheControl = "max-age=3600";
-  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 503);
-  assert.equal(signedDownloads.size, issued, "Unsafe cache must not receive a signed link"); pdfCacheControl = "max-age=0";
+  const currentDownload = await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } });
+  assert.equal(currentDownload.headers()["x-material-version"], "2");
+  assert.equal((await PDFDocument.load(await currentDownload.body())).getSubject(), licenseSubject);
+  const reads = originalReads; pdfCacheControl = "max-age=3600";
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 500);
+  assert.equal(originalReads, reads, "Unsafe metadata fails before reading original"); pdfCacheControl = "max-age=0";
+  for (const failure of ["storage", "corrupt"]) {
+    storageUnavailable = failure === "storage"; corruptPdf = failure === "corrupt";
+    const failed = await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } });
+    assert.equal(failed.status(), 500); assert.equal((await failed.json()).code, "DOWNLOAD_FAILED");
+  }
+  storageUnavailable = false; corruptPdf = false;
+  const issuedLicense = (await service(tx => tx.query("select id from pdf_licenses where user_id=$1 and product_id=$2", [users[1].id, ids[0]]))).rows[0].id;
+  await service(tx => tx.query("update pdf_licenses set status='revoked' where id=$1", [issuedLicense]));
+  const deniedLicense = await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } });
+  assert.equal(deniedLicense.status(), 403); assert.equal((await deniedLicense.json()).code, "LICENSE_REVOKED");
+  await service(tx => tx.query("update pdf_licenses set status='active' where id=$1", [issuedLicense]));
   await db.query("delete from storage.objects where name=$1", [updatedKey]);
   await page.getByRole("button", { name: "Atualizar biblioteca", exact: true }).click();
   await page.getByText(/Você possui acesso, mas o arquivo está temporariamente indisponível/).waitFor();
   assert.equal(await page.getByRole("button", { name: /Baixar PDF:/ }).count(), 0);
-  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 503);
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 404);
   await db.query("insert into storage.objects(bucket_id,name) values('teorema-pdfs',$1)", [updatedKey]);
   await page.getByRole("button", { name: "Atualizar biblioteca", exact: true }).click();
   await page.getByRole("button", { name: "Baixar PDF: Material de estudo 1", exact: true }).waitFor();
   await service(tx => tx.query("select teorema_set_access_state($1,$2,'REVOGADO','Teste de autorização na biblioteca',$3)", [users[0].id, revoked, crypto.randomUUID()]));
   await page.getByRole("button", { name: "Baixar PDF: Material de estudo 1", exact: true }).click();
   const libraryError = page.locator('.library [role="alert"]');
-  await libraryError.waitFor(); assert.match(await libraryError.innerText(), /autorização ativa/);
+  await libraryError.waitFor(); assert.match(await libraryError.innerText(), /não possui acesso/);
   assert.equal(await page.getByRole("button", { name: /Baixar PDF:/ }).count(), 0);
   await page.getByRole("button", { name: "Atualizar biblioteca", exact: true }).click();
   await page.getByText("Acesso revogado", { exact: true }).waitFor();
-  // An already issued bearer link is not recalled by revocation. Its TTL still applies.
-  assert.equal((await context.request.get(currentTicket.url)).status(), 200);
-  signedDownloads.get(new URL(currentTicket.url).searchParams.get("token")).expiresAt = Date.now() - 1;
-  assert.equal((await context.request.get(currentTicket.url)).status(), 403);
+  // Revocation blocks new copies; it cannot recall the personalized file already saved.
+  assert.equal((await context.request.post(origin + "/api/library/download", { headers: { Origin: origin }, data: { productId: ids[0] } })).status(), 403);
   await context.clearCookies(); await page.goto(origin + "/login?next=/carrinho"); await login("bob@example.test"); await ready();
   await page.goto(origin + "/meus-materiais");
   await page.getByRole("button", { name: "Baixar PDF: Material de estudo 3", exact: true }).waitFor();
@@ -547,7 +571,7 @@ try {
   assert.equal((await context.request.get(origin + "/api/library")).status(), 401);
   await page.reload(); await page.waitForURL("**/login?next=**");
   assert.equal(new URL(page.url()).searchParams.get("next"), "/meus-materiais");
-  console.log("PASS stage 8: pending/active/revoked library, profile/order links, private no-store API, own-session-only download, rejected forged identity/origin/GET, actual browser download, current version, missing object, unsafe cache blocked, stale-card revocation, 60s token expiry, no persisted URLs, account isolation, logout redirect, responsive 320/390/768/1440.");
+  console.log("PASS protected PDF download: pending/active/revoked library, private streamed personalized PDF, reusable license across updates, rejected forged identity/origin/GET, actual browser download, missing object, unsafe cache blocked, corrupt original/Storage outage, revoked license/grant, no original URLs, account isolation, logout and responsive 320/390/768/1440.");
   assert.deepEqual(errors, []);
   console.log("PASS stage 6: changed price requires review; lost committed response recovered as the same order; blocked popup fallback; persisted WhatsApp code/price; no grants; customer isolation; verified admin listing; responsive order pages.");
   console.log("PASS: visitor -> login/register links -> atomic merge -> reload -> lost response/retry -> price update -> unavailable/removal -> logout/login -> second-user isolation -> expired session -> confirmation callback. Responsive at 320/390/768/1440. No browser runtime errors.");

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const DOWNLOAD_TTL = 60;
+export const PERSONALIZED_PDF_LIMIT = 40 * 1024 * 1024;
 export const downloadInput = z.object({ productId: z.string().uuid() }).strict();
 export const libraryItem = z.object({
   productId: z.string().uuid(), name: z.string(), state: z.enum(["ATIVO", "PENDENTE", "REVOGADO"]),
@@ -12,16 +12,26 @@ export type LibraryPage = z.infer<typeof libraryPage>;
 export const libraryLabels = { ATIVO: "Disponível", PENDENTE: "Aguardando liberação", REVOGADO: "Acesso revogado" };
 
 export function pdfFilename(name: string) {
-  const base = name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9 -]/g, " ").trim().replace(/\s+/g, "-").slice(0, 100);
+  const safe = name.replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, " ")
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, " ");
+  const base = safe.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9 -]/g, " ").trim().replace(/\s+/g, "-").slice(0, 100).replace(/^-+|-+$/g, "");
   return `${base || "material-teorema"}.pdf`;
 }
-// Validate the signing result on both server and client. Never follow an arbitrary URL.
-export function validateDownloadUrl(raw: string, supabaseUrl: string, productId: string, fileId?: string) {
-  z.string().uuid().parse(productId);
-  if (fileId) z.string().uuid().parse(fileId);
-  const url = new URL(raw), origin = new URL(supabaseUrl);
-  if (url.origin !== origin.origin || url.username || url.password || url.hash ||
-    !new RegExp(`^/storage/v1/object/sign/teorema-pdfs/products/${productId}/[0-9a-f-]{36}\\.pdf$`, "i").test(url.pathname) ||
-    (fileId && !url.pathname.endsWith(`/${fileId}.pdf`)) || !url.searchParams.get("token")) throw new Error("Link de download inválido.");
-  return url.href;
+// The client accepts a PDF body, never an original Storage URL/ticket.
+export async function readPersonalizedResponse(response: Response) {
+  if (response.headers.get("content-type")?.split(";", 1)[0] !== "application/pdf" || !response.body) throw new Error("Resposta de download inválida.");
+  const match = response.headers.get("content-disposition")?.match(/^attachment; filename="([a-zA-Z0-9-]{1,100}\.pdf)"$/);
+  if (!match) throw new Error("Resposta de download inválida.");
+  const reader = response.body.getReader(), chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      size += value.byteLength;
+      if (size > PERSONALIZED_PDF_LIMIT) { await reader.cancel(); throw new Error("Não foi possível receber o PDF. Fale com a equipe."); }
+      chunks.push(new Uint8Array(value));
+    }
+  } finally { reader.releaseLock(); }
+  if (!size) throw new Error("O arquivo recebido está vazio. Tente novamente.");
+  return { blob: new Blob(chunks, { type: "application/pdf" }), filename: match[1] };
 }

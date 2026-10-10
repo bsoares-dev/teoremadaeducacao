@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { Worker } from "node:worker_threads";
 import { PDFDocument, PDFName, PDFString, PDFDict } from "pdf-lib";
 import sharp from "sharp";
 import { uploadSchema, readBounded, PDF_LIMIT, stagingKey, finalKey } from "../lib/uploads";
@@ -30,6 +31,19 @@ test("PDF validator accepts static PDF and rejects disguised/truncated bytes", a
   await assert.rejects(validatePdf(new TextEncoder().encode("%PDF-1.7 this is not a document %%EOF")));
   await assert.rejects(validatePdf(bytes.subarray(0, bytes.length - 20)));
   await assert.rejects(validatePdf(new TextEncoder().encode("<html>not PDF</html>")));
+});
+
+test("PDF worker preserves typed bytes when bundler metadata is present", { timeout: 15000 }, async t => {
+  const pdf = await PDFDocument.create(); pdf.addPage();
+  const bytes = await pdf.save();
+  const worker = new Worker(new URL("../lib/pdf-validation-worker.cjs", import.meta.url), {
+    workerData: { bytes, __turbopack_globals__: {} },
+  });
+  t.after(async () => { await worker.terminate(); });
+  const result = await new Promise<unknown>((resolve, reject) => {
+    worker.once("message", resolve); worker.once("error", reject);
+  });
+  assert.deepEqual(result, { result: { pages: 1 } });
 });
 
 test("PDF validator rejects compressed JavaScript, attachments and escaped action names", async () => {
