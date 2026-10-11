@@ -10,7 +10,7 @@ const ProductsManager = dynamic(() => import("./products-manager"), { loading: l
 const CommerceManager = dynamic(() => import("./commerce-manager"), { loading: loadingTab });
 const PdfLicenseManager = dynamic(() => import("./pdf-license-manager"), { loading: loadingTab });
 
-type Profile = { id: string; email: string; cpf: string; phone: string; created_at: string };
+type Profile = { id: string; email: string; cpf: string | null; phone: string | null; created_at: string };
 
 type Tab = "users" | "products" | "commerce" | "licenses";
 export default function AdminDashboard({ actorId, commerceEnabled }: { actorId: string; commerceEnabled: boolean }) {
