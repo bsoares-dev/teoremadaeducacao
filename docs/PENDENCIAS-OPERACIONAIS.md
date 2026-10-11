@@ -20,6 +20,10 @@ PDF original continuam obrigatórios. Não foram publicados produtos de teste.
 Catálogo definitivo ainda precisa de cadastro/envio/publicação pelo administrador;
 duas contas administrativas aguardam primeiro acesso. A liberação não conclui
 SMTP, upload remoto, aceite comercial real nem as pendências históricas abaixo.
+Deployment da aplicação confirmado; smoke do domínio e leituras administrativas
+reais aprovados. 177 testes, TypeScript, lint, build e ensaio local de navegador em
+Production aprovados. A sessão administrativa temporária usada na conferência foi
+encerrada, sem novas compras/produtos/liberações ou mudança de senha/permissões.
 
 ### Histórico de 11/10/2026 — exportação criptografada de backup
 

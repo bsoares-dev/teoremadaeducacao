@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 
 const base = process.env.TEST_BASE_URL || "http://localhost:3100";
 const get = (path, options = {}) => fetch(base + path, { redirect: "manual", ...options });
@@ -23,7 +24,7 @@ for (const path of ["/api/profile", "/api/admin/dashboard?section=users", "/api/
   assert.match(response.headers.get("cache-control") || "", /no-store/);
 }
 // Authorized release reaches authentication, not the old Production-only 404.
-// No cookies, valid signup, purchase, upload or payment are submitted here.
+// No cookies, valid signup, real purchase, upload or payment are submitted here.
 for (const path of ["/meus-materiais", "/pedidos"]) {
   const response = await get(path);
   assert.equal(response.status, 307);
@@ -31,7 +32,11 @@ for (const path of ["/meus-materiais", "/pedidos"]) {
 }
 for (const path of ["/api/cart", "/api/orders", "/api/library", "/api/library/download", "/api/admin/orders", "/api/admin/access", "/api/admin/pdf-licenses"]) {
   const post = path === "/api/orders" || path.endsWith("download");
-  const response = await get(path, post ? { method: "POST", headers: { origin: base, "content-type": "application/json" }, body: "{}" } : {});
+  // Orders validate shape before Auth. Use synthetic IDs without any cookie so
+  // the request reaches, and is denied by, Auth before a write can be attempted.
+  const body = path === "/api/orders" ? JSON.stringify({ operationId: randomUUID(), cartId: randomUUID(),
+    totalCents: 1, items: [{ id: randomUUID(), priceCents: 1 }] }) : "{}";
+  const response = await get(path, post ? { method: "POST", headers: { origin: base, "content-type": "application/json" }, body } : {});
   assert.equal(response.status, 401, path + " must require authentication after release");
   assert.match(response.headers.get("cache-control") || "", /no-store/);
 }

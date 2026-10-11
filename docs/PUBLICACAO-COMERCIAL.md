@@ -92,6 +92,29 @@ decisão anterior do responsável.
   validam negações/falhas e retentativas; não são falhas de Production remoto.
 - Conferir deployment do commit exato e smoke HTTP no domínio após o push.
 
+### Conferência no domínio real
+
+Deployment do commit da aplicação `1f333891abc4cf6d924d75ca50026b279459da9f`
+confirmado pela integração Vercel. Smoke no domínio canônico aprovado: seleção
+anônima vazia responde 200; APIs de compras/download/admin exigem login (401);
+biblioteca/pedidos redirecionam visitantes; cookie administrativo legado, origem
+externa e cadastro inválido continuam negados. O teste de pedidos usa IDs
+sintéticos sem cookie: a autenticação nega antes de qualquer escrita. Corrigida a
+expectativa do smoke, pois corpo malformado recebe 400 antes da verificação Auth.
+
+Uma sessão nova foi aberta com a credencial de teste já fornecida pelo operador,
+somente para consultar produtos, pedidos, acessos, licenças e biblioteca. As cinco
+APIs responderam 200 com cache `private, no-store`, comprovando também a remoção
+da trava de gestão de PDFs após a autorização administrativa real. Apenas essa
+sessão temporária foi encerrada; sessões de outros dispositivos não foram tocadas.
+Nenhuma conta foi criada, senha/role alterada, produto publicado, compra registrada
+ou acesso liberado. Login gera os registros normais de sessão/auditoria do Auth.
+
+Essa conferência não substitui uma compra real nem o envio/download de um material
+definitivo: ainda não há PDFs no Storage. Logs internos do deployment não foram
+consultados por falta de acesso do conector à equipe; não afirmar ausência geral
+de erros de execução apenas pelo status da Vercel ou pelo smoke.
+
 Estado do catálogo antes da entrega: quatro produtos, nenhum publicado, nenhum
 PDF validado e nenhum objeto no Storage; duas contas administrativas ainda
 aguardam primeiro acesso. Liberar o sistema não cria o conteúdo comercial nem
