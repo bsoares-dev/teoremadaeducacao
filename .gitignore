@@ -7,3 +7,7 @@ out
 .data
 supabase/prechange-structure.json
 supabase/.temp/
+*.dump
+*.snapshot.dpapi
+*.backup.enc
+*.storage.enc

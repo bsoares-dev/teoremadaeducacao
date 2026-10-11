@@ -3,6 +3,31 @@
 Verificação: 08/10/2026 (São Paulo). Etapa 9 ainda EM VALIDAÇÃO.
 Este checklist não autoriza a etapa 10 nem a publicação comercial.
 
+### Atualização de 11/10/2026 — backup e publicação solicitados
+
+O responsável autorizou executar backup/recuperação e, depois de sua validação,
+publicação comercial. [Procedimento e estado atual](BACKUP-E-RECUPERACAO.md).
+As evidências de 08/10 abaixo permanecem como histórico, não como diagnóstico atual.
+
+- Inventário atual: 17 migrations, quatro contas/perfis, quatro produtos e nenhum
+  publicado; zero pedidos/acessos/licenças. Buckets com zero objetos.
+- Uma reserva `UPLOADING` foi preservada; nenhum PDF validado está perdido.
+- Destino escolhido: pasta privada fora do OneDrive; ensaio local isolado.
+- Conexão PostgreSQL e ferramentas de dump/restore locais ainda ausentes.
+  A service role permite conferir a aplicação/Storage, mas não substitui o dump.
+- Preflight e inventário agregados adicionados sem alterações no banco/frontend.
+  Exportação e recuperação real não executadas; publicação ainda não liberada.
+- Vercel MCP continua com 403 para a equipe/projeto. A CLI alternativa não tem
+  credenciais; o fluxo de login iniciado pela tentativa de leitura foi cancelado.
+  Verificar deploy por evidência do commit exato, sem assumir que o site
+  institucional autoriza checkout; mudanças de variáveis exigem acesso apropriado.
+- Dois convites administrativos foram entregues em revisão anterior, mas primeiro
+  acesso continua pendente. Preservar confirmação geral enquanto houver risco de
+  apropriação dessas identidades; não alterar Auth nesta etapa por inferência.
+
+Nenhum recurso pago, reset/restore de produção, upgrade, segredo ou flag comercial
+foi alterado na preparação. `.env.example` permanece excluído conforme solicitado.
+
 ## Estado verificado
 
 | Controle | Evidência | Estado |

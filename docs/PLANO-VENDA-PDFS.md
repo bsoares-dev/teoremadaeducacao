@@ -2,6 +2,16 @@
 
 ## Documento de referência
 
+Atualização operacional de 11/10/2026: responsável solicitou **backup e recuperação,
+seguido de publicação comercial**. Backup em preparação, com destino privado fora
+do OneDrive e recuperação local isolada escolhidos. A conexão PostgreSQL e as
+ferramentas locais ainda precisam ser configuradas. Ver
+[BACKUP-E-RECUPERACAO.md](BACKUP-E-RECUPERACAO.md). Etapa 10 autorizada para depois
+da validação do backup e aceite integrado; travas permanecem até esses critérios.
+Os estados/contagens datados de 08/10 abaixo são históricos e não substituem esta
+conferência: atualmente 17 migrations, quatro contas/perfis, zero produtos
+publicados, zero PDFs validados e três buckets sem objetos.
+
 Versão 14, atualizada em 08/10/2026 (São Paulo). Status: etapas 1 e 2 CONCLUÍDAS quanto a experiência/modelagem/estrutura do banco; etapas 3–8 EM VALIDAÇÃO integrada; etapa 9 EM VALIDAÇÃO parcial. Login administrativo real e UUID privado passaram; upload real ainda pendente, três rascunhos de ensaio arquivados, sem contas de teste/pedidos/acessos/objetos. Etapa 10 ADIADA, não removida. Segurança administrativa/HTTP e dependências corrigidas; 68 testes, navegador e build local de produção aprovados na revisão anterior. Limites persistentes aplicados/verificados na migração `20261008024344`. Commit/push autorizados como rotina. Integração Vercel mantém 403 após reconexão; login da CLI autorizado, conclusão a verificar. SMTP aguardará o domínio do Teorema por escolha do responsável. Backup completo, manutenção PostgreSQL e controles externos pendentes; ver [checklist operacional](PENDENCIAS-OPERACIONAIS.md). Publicação comercial bloqueada.
 Este documento é a referência para comandos como “faça a etapa 4”. Manter a numeração estável; registrar mudanças de escopo e decisões aqui.
 O comando “faça a etapa 1” autorizou sua documentação e seus wireframes locais. Não altera aplicação, banco, Storage, Vercel ou autoriza publicação de recursos.
