@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { pagination } from "@/lib/schemas";
 import type { Metadata } from "next";
+import { publicPageMetadata } from "@/lib/seo";
 import { publicCover, selectionPreviewEnabled } from "@/lib/catalog-selection";
 import { cartPreviewEnabled } from "@/lib/cart-contract";
 import Catalog from "./catalog";
@@ -10,12 +11,14 @@ import "./catalog.css";
 const whatsappNumber = "5548935011911";
 
 
-export const metadata: Metadata = {
-  title: "Materiais de estudo em PDF | Teorema da Educação",
-  description: "Conheça os materiais digitais do Teorema da Educação. Conteúdos de Anderson e Mariana para estudar com clareza e propósito.",
-  robots: process.env.VERCEL_ENV === "preview" || process.env.NODE_ENV === "development" ? { index: false, follow: false } : { index: true, follow: true },
-  openGraph: { title: "Materiais do Teorema da Educação", description: "Conhecimento para acompanhar seu próximo passo. Conheça nossos materiais de estudo em PDF.", type: "website", locale: "pt_BR" },
-};
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ page?: string }> }): Promise<Metadata> {
+  const { page } = pagination((await searchParams).page || null, 12);
+  return publicPageMetadata(
+    page > 1 ? `/materiais?page=${page}` : "/materiais",
+    "Materiais de estudo em PDF | Teorema da Educação",
+    "Conheça os materiais digitais do Teorema da Educação. Conteúdos de Anderson e Mariana para estudar com clareza e propósito.",
+  );
+}
 
 export default async function MaterialsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const { page, from, to } = pagination((await searchParams).page || null, 12);
