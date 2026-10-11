@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, ArrowUpRight, BookOpen, MessageCircle, ReceiptText, ShieldCheck, ShoppingCart, UserRound } from "lucide-react";
-import { requireUser } from "@/lib/auth";
-import { isAdmin } from "@/lib/auth-policy";
+import { adminAccess, requireUser } from "@/lib/auth";
 import { SessionGuard, RetryButton } from "@/app/components/session-controls";
 import StudentShell, { studentSupportUrl } from "@/app/components/student-shell";
 import { cartPreviewEnabled } from "@/lib/cart-contract";
@@ -12,8 +11,10 @@ export const metadata: Metadata = { title: "Meu perfil | Teorema da Educação",
 
 export default async function PerfilPage() {
   const { user, supabase } = await requireUser("/perfil");
-  const { data: profile, error } = await supabase.from("profiles")
-    .select("full_name, email, cpf, phone, created_at").eq("id", user.id).maybeSingle();
+  const [{ data: profile, error }, { allowed }] = await Promise.all([
+    supabase.from("profiles").select("full_name, email, cpf, phone, created_at").eq("id", user.id).maybeSingle(),
+    adminAccess(),
+  ]);
 
   const commerceEnabled = cartPreviewEnabled(process.env);
   return <SessionGuard userId={user.id}><StudentShell active="overview" email={user.email} commerceEnabled={commerceEnabled}>
@@ -45,6 +46,6 @@ export default async function PerfilPage() {
       </section>
       <section className="student-panel student-help"><ShieldCheck size={25} strokeWidth={1.5} aria-hidden="true" /><h2>Você não precisa<br />seguir sozinho.</h2><p>Dúvidas sobre um material, pedido ou seu acesso? Nossa equipe ajuda você a continuar.</p><a className="account-button secondary" href={studentSupportUrl} target="_blank" rel="noopener noreferrer">Conversar com a equipe<ArrowUpRight size={16} aria-hidden="true" /></a></section>
     </div>
-    {isAdmin(user) && <Link className="student-admin-link" href="/admin">Acessar administração<ArrowUpRight size={14} aria-hidden="true" /></Link>}
+    {allowed && <Link className="student-admin-link" href="/admin">Acessar administração<ArrowUpRight size={14} aria-hidden="true" /></Link>}
   </StudentShell></SessionGuard>;
 }

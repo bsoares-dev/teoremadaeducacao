@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readJson, privateJson } from "../lib/http";
-import { verifiedAdmin, ADMIN_EMAIL } from "../lib/auth-policy";
+import { verifiedAdmin } from "../lib/auth-policy";
 import { signupSchema } from "../lib/schemas";
 import { securityHeaders, headerRules } from "../config/security-headers.mjs";
 
 test("administrator reads require the private UUID eligibility, not email alone", async () => {
-  const user = { id: "test-uuid", email: ADMIN_EMAIL, email_confirmed_at: "2026-01-01" };
+  const user = { id: "test-uuid", email: "admin@example.test", email_confirmed_at: "2026-01-01" };
   let checked = "";
   assert.equal(await verifiedAdmin(user, async id => { checked = id; return { data: true, error: null }; }), true);
   assert.equal(checked, user.id);
@@ -14,9 +14,11 @@ test("administrator reads require the private UUID eligibility, not email alone"
   assert.equal(await verifiedAdmin(user, async () => ({ data: "true", error: null })), false);
   await assert.rejects(() => verifiedAdmin(user, async () => ({ data: null, error: { code: "PGRST000" } })));
   const forbidden = async () => { throw new Error("Checker must not run"); };
-  for (const visitor of [null, { ...user, email: "student@example.test" }, { ...user, email_confirmed_at: undefined }, { ...user, is_anonymous: true }]) {
+  for (const visitor of [null, { ...user, id: "" }, { ...user, email: "" }, { ...user, email_confirmed_at: undefined }, { ...user, is_anonymous: true }]) {
     assert.equal(await verifiedAdmin(visitor, forbidden), false);
   }
+  assert.equal(await verifiedAdmin({ ...user, email: "second-admin@example.test" }, async () => ({ data: true, error: null })), true);
+  assert.equal(await verifiedAdmin({ ...user, email: "student@example.test" }, async () => ({ data: null, error: { code: "42501" } })), false);
 });
 
 test("signup rejects injected admin/identity attributes", () => {

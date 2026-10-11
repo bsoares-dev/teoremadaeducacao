@@ -1,12 +1,11 @@
-export const ADMIN_EMAIL = "bernardozsoares11@gmail.com";
-
-export function isAdmin(user: { email?: string; email_confirmed_at?: string; is_anonymous?: boolean } | null) {
-  return Boolean(user?.email_confirmed_at && !user.is_anonymous && user.email?.trim().toLowerCase() === ADMIN_EMAIL);
+// Eligibility is not authorization. Only the private UUID registry decides admin access.
+export function isEligibleAccount(user: { email?: string; email_confirmed_at?: string; is_anonymous?: boolean } | null) {
+  return Boolean(user?.email_confirmed_at && !user.is_anonymous && user.email?.trim());
 }
 
 export async function verifiedAdmin(user: { id: string; email?: string; email_confirmed_at?: string; is_anonymous?: boolean } | null,
   check: (id: string) => Promise<{ data: unknown; error: { code?: string } | null }>) {
-  if (!isAdmin(user)) return false;
+  if (!user?.id || !isEligibleAccount(user)) return false;
   const result = await check(user!.id);
   if (result.error?.code === "42501") return false;
   if (result.error) throw new Error("Verificação administrativa temporariamente indisponível.");

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { isAdmin, safeNext } from "@/lib/auth-policy";
+import { safeNext } from "@/lib/auth-policy";
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
@@ -30,9 +30,10 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      router.replace(safeNext(new URLSearchParams(window.location.search).get("next"), isAdmin(data.user) ? "/admin" : "/perfil"));
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.replace(next ? safeNext(next) : "/auth/destination");
       router.refresh();
     } catch (error) {
       setFeedback(error instanceof Error && /confirm/i.test(error.message) ? "Confirme seu e-mail antes de entrar." : "Não foi possível entrar. Confira e-mail e senha ou tente novamente.");

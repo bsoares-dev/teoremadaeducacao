@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { isValidCpf, signupSchema, productSchema, pagination } from "../lib/schemas";
-import { isAdmin, safeNext, ADMIN_EMAIL } from "../lib/auth-policy";
+import { isEligibleAccount, safeNext } from "../lib/auth-policy";
 
 test("CPF rejects repeated digits and wrong check digits, accepts formatted valid fixture", () => {
   assert.equal(isValidCpf("111.111.111-11"), false);
@@ -15,11 +15,12 @@ test("signup normalizes identifiers and rejects short passwords and invalid phon
   assert.equal(signupSchema.safeParse({ ...input, password: "123" }).success, false);
   assert.equal(signupSchema.safeParse({ ...input, phone: "00000000000" }).success, false);
 });
-test("admin requires verified canonical email; metadata is not used", () => {
-  assert.equal(isAdmin(null), false);
-  assert.equal(isAdmin({ email: ADMIN_EMAIL }), false);
-  assert.equal(isAdmin({ email: "student@example.com", email_confirmed_at: "2026-01-01" }), false);
-  assert.equal(isAdmin({ email: ADMIN_EMAIL.toUpperCase(), email_confirmed_at: "2026-01-01" }), true);
+test("account eligibility requires confirmation and is not an administrative authorization", () => {
+  assert.equal(isEligibleAccount(null), false);
+  assert.equal(isEligibleAccount({ email: "admin@example.test" }), false);
+  assert.equal(isEligibleAccount({ email: " ", email_confirmed_at: "2026-01-01" }), false);
+  assert.equal(isEligibleAccount({ email: "student@example.test", email_confirmed_at: "2026-01-01" }), true);
+  assert.equal(isEligibleAccount({ email: "admin@example.test", email_confirmed_at: "2026-01-01", is_anonymous: true }), false);
 });
 test("redirects never accept external or protocol-relative targets", () => {
   for (const value of ["https://evil.example", "//evil.example", "/\\evil.example", "/auth/callback", "javascript:alert(1)"]) assert.equal(safeNext(value), "/perfil");

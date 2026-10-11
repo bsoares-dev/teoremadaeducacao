@@ -3,7 +3,7 @@
 ## Configuração atual
 - NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: cliente público.
 - SUPABASE_SERVICE_ROLE_KEY: somente servidor, usada após identidade verificada e autorização específica da operação.
-- A autorização administrativa exige e-mail confirmado, conta não anônima e UUID elegível na tabela privada, validado por `teorema_admin_check`. E-mail ou metadados editáveis sozinhos não autorizam. Página e API de usuários usam a mesma regra.
+- A autorização administrativa exige conta elegível e UUID ativo na tabela privada, validado por `teorema_admin_check`. Não há restrição de um único e-mail no código; e-mail ou metadados editáveis sozinhos não autorizam. Página e APIs usam a mesma regra. Convites administrativos pendentes precisam ser aceitos antes de desligar a confirmação geral do cadastro; ver `ADMINISTRADORES-E-CADASTRO.md`.
 - ADMIN_PASSWORD e o cookie teorema_admin_session não autorizam mais nenhuma operação.
 - /api/admin/login, /logout e /registrations antigos retornam 410.
 - /api/register foi convertido para criar conta Supabase; não grava mais em registrations.
