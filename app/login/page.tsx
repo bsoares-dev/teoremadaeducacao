@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { isAdmin, safeNext } from "@/lib/auth-policy";
@@ -65,7 +66,7 @@ export default function LoginPage() {
             <input id="login-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" minLength={6} required />
           </div>
           <button className="auth-submit" type="submit" disabled={loading}>
-            {loading ? "Entrando..." : "Entrar"}<span>↗</span>
+            {loading ? "Entrando..." : "Entrar"}<ArrowUpRight className="ui-icon" size={18} aria-hidden="true" />
           </button>
         </form>
 

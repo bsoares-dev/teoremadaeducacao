@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowUp, ArrowUpRight } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { pagination } from "@/lib/schemas";
 import type { Metadata } from "next";
@@ -47,7 +48,7 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
           Teorema <em>da Educação</em>
         </Link>
         <Link className="materials-back" href="/">
-          Voltar ao início <span>↗</span>
+          Voltar ao início <span><ArrowUpRight className="ui-icon" size={16} aria-hidden="true" /></span>
         </Link>
       </header>
 
@@ -95,14 +96,14 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
           rel="noreferrer"
           className="materials-contact-button"
         >
-          Falar com o Teorema <span>↗</span>
+          Falar com o Teorema <span><ArrowUpRight className="ui-icon" size={16} aria-hidden="true" /></span>
         </a>
       </section>
 
       <footer className="materials-footer">
         <span>© 2026 Teorema da Educação</span>
         <span>Feito com propósito.</span>
-        <Link href="/">Voltar ao início ↑</Link>
+        <Link href="/">Voltar ao início <ArrowUp className="ui-icon" size={14} aria-hidden="true" /></Link>
       </footer>
     </main>
   );

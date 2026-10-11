@@ -2,36 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, LogOut, Menu, Phone, Sparkle, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
-
-const products = [
-  {
-    type: "Curso completo",
-    title: "Preparatório Extensivo para Concursos",
-    desc: "Videoaulas de todos os temas da educação, resumos estratégicos, mapas mentais e questões comentadas em vídeo e PDF.",
-    price: "Conheça as opções",
-    accent: "blue",
-    cta: "Quero ser aprovado",
-  },
-  {
-    type: "Foco em bancas de SC",
-    title: "Curso de Questões e Processos Seletivos",
-    desc: "Videoaulas com correção comentada de questões das principais bancas de Santa Catarina + PDFs dos conteúdos cobrados.",
-    price: "Editais & ACTs",
-    accent: "gold",
-    cta: "Quero praticar",
-  },
-  {
-    type: "Materiais em PDF",
-    title: "Kit Estratégico em PDF",
-    desc: "Resumos objetivos, mapas mentais visuais e cadernos de questões gabaritadas e comentadas para estudo dinâmico.",
-    price: "Consulte o catálogo",
-    accent: "light",
-    cta: "Garantir kit",
-  },
-];
+import { homeProducts } from "@/lib/home-products";
 
 const whatsappNumber = "5548935011911";
 const whatsappMessage = "Olá! Vim pelo site do Teorema da Educação e gostaria de descobrir meu próximo passo.";
@@ -123,11 +97,14 @@ export default function HomeContent() {
         <button
           className="menu-button"
           onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Abrir menu"
+          type="button"
+          aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
+          aria-expanded={menuOpen}
+          aria-controls="home-navigation"
         >
-          ☰
+          {menuOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
         </button>
-        <nav className={menuOpen ? "nav open" : "nav"}>
+        <nav id="home-navigation" className={menuOpen ? "nav open" : "nav"}>
           <a href="#projeto" onClick={() => setMenuOpen(false)}>
             O projeto
           </a>
@@ -147,7 +124,7 @@ export default function HomeContent() {
                 href="/perfil"
                 onClick={() => setMenuOpen(false)}
               >
-                Meu Perfil <span>↗</span>
+                Meu Perfil <span><ArrowUpRight className="ui-icon" size={16} aria-hidden="true" /></span>
               </Link>
               <button
                 type="button"
@@ -166,7 +143,7 @@ export default function HomeContent() {
               href="/cadastro"
               onClick={() => setMenuOpen(false)}
             >
-              Cadastre-se <span>↗</span>
+              Cadastre-se <span><ArrowUpRight className="ui-icon" size={16} aria-hidden="true" /></span>
             </Link>
           )}
         </nav>
@@ -187,7 +164,7 @@ export default function HomeContent() {
             questões comentadas das principais bancas de Santa Catarina.
           </p>
           <a className="button button-light" href="#projeto">
-            Conheça nossos cursos <span>↓</span>
+            Conheça nossos cursos <span><ArrowDown className="ui-icon" size={18} aria-hidden="true" /></span>
           </a>
         </div>
         <div className="hero-art">
@@ -202,7 +179,7 @@ export default function HomeContent() {
           </div>
         </div>
         <div className="scroll-note">
-          Role para descobrir <span>↓</span>
+          Role para descobrir <span><ArrowDown className="ui-icon" size={14} aria-hidden="true" /></span>
         </div>
       </section>
 
@@ -230,7 +207,7 @@ export default function HomeContent() {
               legislação pedagógica e garantir sua vaga.
             </p>
             <a className="text-link" href="#docentes">
-              Conheça nossa metodologia <span>↗</span>
+              Conheça nossa metodologia <span><ArrowUpRight className="ui-icon" size={16} aria-hidden="true" /></span>
             </a>
           </div>
         </div>
@@ -277,7 +254,7 @@ export default function HomeContent() {
               <h3>Anderson Hirsch</h3>
               <p>Servidor efetivo no município de Palhoça/SC. Licenciado em Matemática e Ed. Física, Mestrando na UFSC e especialista em Educação Tecnológica e Gestão Escolar.</p>
               <a className="text-link" href="#trajetoria-anderson" onClick={(event) => { event.preventDefault(); setActivePerson("anderson"); }}>
-                Conhecer trajetória <span>↗</span>
+                Conhecer trajetória <span><ArrowUpRight className="ui-icon" size={16} aria-hidden="true" /></span>
               </a>
             </div>
           </article>
@@ -290,7 +267,7 @@ export default function HomeContent() {
               <h3>Mariana Tiepo</h3>
               <p>Professora efetiva de Educação Especial em Palhoça/SC. Graduada em Pedagogia Bilíngue pelo IFSC e especialista em Educação Inclusiva e Educação de Surdos.</p>
               <a className="text-link" href="#trajetoria-mariana" onClick={(event) => { event.preventDefault(); setActivePerson("mariana"); }}>
-                Conhecer trajetória <span>↗</span>
+                Conhecer trajetória <span><ArrowUpRight className="ui-icon" size={16} aria-hidden="true" /></span>
               </a>
             </div>
           </article>
@@ -315,21 +292,23 @@ export default function HomeContent() {
           </p>
         </div>
         <div className="product-grid">
-          {products.map((product) => (
+          {homeProducts.map((product) => (
             <article
               className={`product ${product.accent}`}
               key={product.title}
             >
               <div className="product-top">
                 <span>{product.type}</span>
-                <span>↗</span>
+                <ArrowUpRight className="ui-icon" size={14} aria-hidden="true" />
               </div>
-              <div className="product-symbol">✦</div>
+              <div className="product-symbol" aria-hidden="true"><Sparkle size={50} fill="currentColor" strokeWidth={0} /></div>
               <h3>{product.title}</h3>
               <p>{product.desc}</p>
               <div className="product-bottom">
                 <strong>{product.price}</strong>
-                <a href="/materiais">{product.cta}</a>
+                {product.external
+                  ? <a href={product.href} target="_blank" rel="noopener noreferrer">{product.cta}</a>
+                  : <Link href={product.href}>{product.cta}</Link>}
               </div>
             </article>
           ))}
@@ -343,7 +322,7 @@ export default function HomeContent() {
           <h2>Fale conosco e escolha o<br /><em>plano ideal para sua aprovação.</em></h2>
           <p>Fale diretamente com nossa equipe pelo WhatsApp para descobrir qual curso ou combo de materiais em PDF se encaixa perfeitamente no seu momento de estudos.</p>
           <a className="whatsapp-cta" href={whatsappUrl} target="_blank" rel="noopener noreferrer">
-            Fale conosco no WhatsApp <span>↗</span>
+            Fale conosco no WhatsApp <span><ArrowUpRight className="ui-icon" size={18} aria-hidden="true" /></span>
           </a>
           <small>Atendimento rápido e direto pelo WhatsApp oficial do Teorema da Educação.</small>
         </div>
@@ -360,27 +339,27 @@ export default function HomeContent() {
           </p>
           <div className="socials">
             <a href="https://www.instagram.com/teoremaeducacao?igsi=MTNzeGQxMXhna2Z0dQ==" target="_blank" rel="noreferrer">
-              Instagram <span>↗</span>
+              Instagram <span><ArrowUpRight className="ui-icon" size={14} aria-hidden="true" /></span>
             </a>
             <a href="https://youtube.com/@teoremaeducacao?si=3HFnGvDc4t-nI8K5" target="_blank" rel="noreferrer">
-              YouTube <span>↗</span>
+              YouTube <span><ArrowUpRight className="ui-icon" size={14} aria-hidden="true" /></span>
             </a>
           </div>
         </div>
         <div className="footer-bottom">
           <span>© 2026 Teorema da Educação</span>
           <span>Feito com propósito.</span>
-          <a href="#inicio">Voltar ao topo ↑</a>
+          <a href="#inicio">Voltar ao topo <ArrowUp className="ui-icon" size={14} aria-hidden="true" /></a>
         </div>
       </footer>
       <a className="whatsapp-float" href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="Falar com o Teorema da Educação pelo WhatsApp">
-        <span className="whatsapp-icon" aria-hidden="true">✆</span>
+        <span className="whatsapp-icon" aria-hidden="true"><Phone size={14} /></span>
         <span className="whatsapp-float-label">Fale conosco</span>
       </a>
       {activePerson && (
         <div className="trajectory-backdrop" role="dialog" aria-modal="true" aria-labelledby="trajectory-title" onClick={() => setActivePerson(null)}>
           <article className="trajectory-modal" onClick={(event) => event.stopPropagation()}>
-            <button className="trajectory-close" type="button" onClick={() => setActivePerson(null)} aria-label="Fechar trajetória">×</button>
+            <button className="trajectory-close" type="button" onClick={() => setActivePerson(null)} aria-label="Fechar trajetória"><X size={18} aria-hidden="true" /></button>
             <div className="trajectory-image"><img src={trajectories[activePerson].photo} alt={trajectories[activePerson].alt} /></div>
             <div className="trajectory-copy">
               <p className="eyebrow">Trajetória</p>
@@ -390,7 +369,7 @@ export default function HomeContent() {
               <p>{trajectories[activePerson].text}</p>
               {trajectories[activePerson].lattes && (
                 <a className="text-link" href={trajectories[activePerson].lattes} target="_blank" rel="noreferrer">
-                  Currículo Lattes <span>↗</span>
+                  Currículo Lattes <span><ArrowUpRight className="ui-icon" size={16} aria-hidden="true" /></span>
                 </a>
               )}
             </div>

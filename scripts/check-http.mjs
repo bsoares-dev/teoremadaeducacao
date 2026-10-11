@@ -17,7 +17,7 @@ for (const path of ["/perfil", "/admin", "/carrinho"]) {
   assert.match(response.headers.get("location") || "", /^\/login\?next=/);
   console.log(path + ": visitante redirecionado");
 }
-for (const path of ["/api/profile", "/api/admin/dashboard?section=users"]) {
+for (const path of ["/api/profile", "/api/admin/dashboard?section=users", "/api/admin/products?includeArchived=false", "/api/admin/products?includeArchived=true"]) {
   const response = await get(path);
   assert.equal(response.status, 401);
   assert.match(response.headers.get("cache-control") || "", /no-store/);

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation";
 import type { Upload } from "tus-js-client";
 import { uploadSchema } from "@/lib/uploads";
+import { adminProductListUrl } from "@/lib/admin-product-list";
 
 type Product = { id: string; name: string; description: string; price: number; image_url: string; publication_status: "DRAFT" | "PUBLISHED" | "UNPUBLISHED" | "ARCHIVED"; revision: number };
 type Version = { id: string; version: number; version_label: string; size_bytes: number; validation_status: string; is_current: boolean; created_at: string };
@@ -18,6 +19,7 @@ export default function ProductsManager() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0), [page, setPage] = useState(1), [refresh, setRefresh] = useState(0);
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false);
   const [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<string | null>(null), [detail, setDetail] = useState<Detail | null>(null);
@@ -41,12 +43,16 @@ export default function ProductsManager() {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError("");
-    void api<{ items: Product[]; total: number }>(`/api/admin/products?page=${page}`, undefined, controller.signal)
-      .then(result => { if (!controller.signal.aborted) { setProducts(result.items); setTotal(result.total); } })
+    void api<{ items: Product[]; total: number }>(adminProductListUrl(page, includeArchived), undefined, controller.signal)
+      .then(result => { if (!controller.signal.aborted) {
+        setProducts(result.items); setTotal(result.total);
+        const lastPage = Math.max(1, Math.ceil(result.total / 20));
+        if (page > lastPage) setPage(lastPage);
+      } })
       .catch(err => { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "Falha ao consultar produtos."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [page, refresh, api]);
+  }, [page, refresh, includeArchived, api]);
 
   async function open(id: string) {
     if (busy) return;
@@ -136,8 +142,18 @@ export default function ProductsManager() {
   const archived = detail?.product.publication_status === "ARCHIVED";
   const current = detail?.files.find(v => v.is_current);
 
+  function newMaterial() {
+    setSelected(null); setDetail(null); setForm(blank); setFile(null);
+    draftId.current = null; uploadId.current = null;
+  }
+
+  function showArchived(show: boolean) {
+    setIncludeArchived(show); setPage(1);
+    if (!show && archived) newMaterial();
+  }
+
   return <section className="catalog-manager" aria-label="Gestão de produtos">
-    <div className="catalog-toolbar"><button disabled={busy} onClick={() => { setSelected(null); setDetail(null); setForm(blank); setFile(null); draftId.current = null; uploadId.current = null; }}>Novo material</button>
+    <div className="catalog-toolbar"><button disabled={busy} onClick={newMaterial}>Novo material</button>
       <button disabled={busy} onClick={() => setRefresh(v => v + 1)}>Atualizar lista</button>
       <button disabled={busy} onClick={cleanup}>Limpar envios expirados</button></div>
     {error ? <p className="account-notice error" role="alert">{error}</p> : null}
@@ -178,11 +194,15 @@ export default function ProductsManager() {
       </> : <p className="catalog-hint">Salve o rascunho para adicionar a capa e o PDF privado.</p>}
     </div>
     <h3 className="catalog-list-title">Seus materiais</h3>
+    <div className="catalog-list-filter">
+      <label><input type="checkbox" checked={includeArchived} disabled={busy || loading} onChange={event => showArchived(event.target.checked)} />Mostrar materiais arquivados</label>
+      <p>Arquivados ficam fora da listagem padrão. Arquivos, compras e acessos existentes são preservados.</p>
+    </div>
     {loading ? <p role="status">Carregando materiais...</p> : <div className="product-list">{products.map(p => <article key={p.id} className={selected === p.id ? "selected" : ""}>
       {p.image_url ? <img src={p.image_url} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <div className="cover-placeholder" aria-hidden="true">TE</div>}
       <div><p className="eyebrow">{labels[p.publication_status]} · {Number(p.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p><h3>{p.name}</h3><p>{p.description}</p><button disabled={busy} onClick={() => open(p.id)}>Gerenciar material</button></div>
     </article>)}</div>}
-    {!loading && !total && !error ? <p>Nenhum material cadastrado. Comece por um rascunho.</p> : null}
+    {!loading && !total && !error ? <p>{includeArchived ? "Nenhum material cadastrado. Comece por um rascunho." : "Nenhum material em uso. Crie um rascunho ou marque a opção acima para consultar os arquivados."}</p> : null}
     {total ? <nav className="pagination" aria-label="Páginas de materiais"><button disabled={busy || loading || page === 1} onClick={() => setPage(v => v - 1)}>Anterior</button><span>{page} de {Math.max(1, Math.ceil(total / 20))} · {total} materiais</span><button disabled={busy || loading || page * 20 >= total} onClick={() => setPage(v => v + 1)}>Próxima</button></nav> : null}
   </section>;
 }

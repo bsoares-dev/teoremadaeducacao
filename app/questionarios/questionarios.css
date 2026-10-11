@@ -1,0 +1,23 @@
+.questionnaires-page { background: #f7f5f0; }
+.questionnaires-page :is(a,button):focus-visible { outline: 2px solid var(--blue); outline-offset: 5px; }
+.questionnaires-intro, .questionnaires-preview, .questionnaires-footer { max-width: 1180px; margin-inline: auto; }
+.questionnaires-intro { padding: clamp(60px, 8vw, 110px) 0 48px; }
+.questionnaires-intro h1 { margin: 0 0 24px; font-family: var(--font-playfair), Georgia, serif; font-size: clamp(48px, 8vw, 104px); font-weight: 500; line-height: .98; letter-spacing: -.045em; }
+.questionnaires-intro h1 em { color: var(--gold); font-weight: 500; }
+.questionnaires-intro > p:last-child { max-width: 510px; color: #5b6870; font-size: 16px; line-height: 1.75; }
+.questionnaires-preview { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 32px; padding: clamp(28px, 5vw, 56px); border: 1px solid #93846c44; background: #fffdf9; }
+.questionnaires-icon { width: 72px; height: 72px; display: grid; place-items: center; background: #0f2840; color: var(--sand); }
+.questionnaires-preview .eyebrow { margin-bottom: 16px; }
+.questionnaires-preview h2 { font-family: var(--font-playfair), Georgia, serif; font-size: clamp(30px, 4vw, 48px); line-height: 1.1; letter-spacing: -.025em; }
+.questionnaires-preview h2 + p { max-width: 610px; color: #5b6870; font-size: 15px; line-height: 1.8; margin: 22px 0 0; }
+.questionnaires-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; margin-top: 30px; }
+.questionnaires-actions a { min-height: 44px; display: inline-flex; align-items: center; gap: 24px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
+.questionnaires-primary { background: #0f2840; color: #f7f5f0; padding: 16px 20px; }
+.questionnaires-primary:hover { background: var(--blue); }
+.questionnaires-footer { margin-top: 48px; }
+@media (max-width: 600px) {
+  .questionnaires-preview { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px; }
+  .questionnaires-actions { flex-direction: column; align-items: stretch; gap: 12px; }
+  .questionnaires-actions a { justify-content: space-between; }
+  .questionnaires-page .materials-brand { max-width: 165px; font-size: 19px; }
+}

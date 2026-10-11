@@ -32,6 +32,10 @@
 .version-history strong { font-size: 14px; }
 .version-history span { font-size: 12px; color: #5b6870; }
 .catalog-list-title { margin-top: 42px; }
+.catalog-list-filter { margin: -8px 0 24px; }
+.catalog-list-filter label { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-size: 13px; cursor: pointer; }
+.catalog-list-filter input { width: 18px; height: 18px; accent-color: #0f2840; }
+.catalog-list-filter p { margin: 4px 0 0; color: #5b6870; font-size: 12px; line-height: 1.6; }
 .catalog-manager .product-list article { border: 1px solid #93846c33; padding: 20px; }
 .catalog-manager .product-list article.selected { border-color: #195681; }
 .catalog-manager .product-list p { overflow-wrap: anywhere; }

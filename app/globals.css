@@ -119,7 +119,13 @@ input {
   border: 0;
   color: var(--navy);
   font-size: 25px;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
 }
+.ui-icon { display: inline-block; flex-shrink: 0; vertical-align: -.15em; }
+.product-symbol svg { display: block; width: 50px; height: 60px; }
+.trajectory-close { display: grid; place-items: center; }
 .hero {
   min-height: calc(100vh - 82px);
   background: var(--navy);

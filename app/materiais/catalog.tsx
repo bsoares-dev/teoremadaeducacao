@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Check, ShoppingCart, Plus, BookOpen } from "lucide-react";
+import { ArrowUpRight, Check, ShoppingCart, Plus, BookOpen } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SELECTION_KEY, SELECTION_LIMIT, parseSelection, serializeSelection, type Material, type MaterialState } from "@/lib/catalog-selection";
 
@@ -100,7 +100,7 @@ export default function Catalog({ materials, selectionEnabled, cartEnabled = fal
   return <>
     {selectionEnabled && <aside className="catalog-selection" aria-label="Sua seleção">
       <div><ShoppingCart size={22} aria-hidden="true" /><strong>{count} {count === 1 ? "material selecionado" : "materiais selecionados"}</strong></div>
-      <Link href="/carrinho" className="catalog-cart-link">Ir para o carrinho <span aria-hidden="true">↗</span></Link>
+      <Link href="/carrinho" className="catalog-cart-link">Ir para o carrinho <ArrowUpRight className="ui-icon" size={18} aria-hidden="true" /></Link>
       <p>{cartEnabled ? "Revise os materiais no carrinho. Entre na sua conta para salvar sua seleção." : "Prévia da seleção. O carrinho e a finalização serão disponibilizados na próxima etapa."}</p>
     </aside>}
     <p className="catalog-feedback" role="status" aria-live="polite">{message}</p>
@@ -120,7 +120,7 @@ export default function Catalog({ materials, selectionEnabled, cartEnabled = fal
                 {selected ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}{label}</button>
                 {state === "owned" && <p className="catalog-owned">Já disponível na sua biblioteca.</p>}
                 {local ? <button className="catalog-remove" onClick={() => remove(material.id)} aria-label={`Remover ${material.name} da seleção`}>Remover da seleção</button> : selected ? <Link className="catalog-remove" href="/carrinho">Gerenciar no carrinho</Link> : null}</>
-                : <a className="catalog-add" href={`https://wa.me/5548935011911?text=${encodeURIComponent(`Olá! Tenho interesse no material ${material.name} e gostaria de saber como adquirir.`)}`} target="_blank" rel="noreferrer">Consultar pelo WhatsApp <span aria-hidden="true">↗</span></a>}
+                : <a className="catalog-add" href={`https://wa.me/5548935011911?text=${encodeURIComponent(`Olá! Tenho interesse no material ${material.name} e gostaria de saber como adquirir.`)}`} target="_blank" rel="noreferrer">Consultar pelo WhatsApp <ArrowUpRight className="ui-icon" size={18} aria-hidden="true" /></a>}
             </div>
           </div>
         </article>;

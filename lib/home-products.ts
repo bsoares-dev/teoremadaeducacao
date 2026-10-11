@@ -1,0 +1,32 @@
+export const homeProducts = [
+  {
+    type: "Curso completo",
+    title: "Preparatório Extensivo para Concursos",
+    desc: "Videoaulas de todos os temas da educação, resumos estratégicos, mapas mentais e questões comentadas em vídeo e PDF.",
+    price: "Conheça as opções",
+    accent: "blue",
+    cta: "Quero ser aprovado",
+    href: "https://hotmart.com/pt-br/club/henrique-hirsch",
+    external: true,
+  },
+  {
+    type: "Foco em bancas de SC",
+    title: "Curso de Questões e Processos Seletivos",
+    desc: "Videoaulas com correção comentada de questões das principais bancas de Santa Catarina + PDFs dos conteúdos cobrados.",
+    price: "Editais & ACTs",
+    accent: "gold",
+    cta: "Quero praticar",
+    href: "/questionarios",
+    external: false,
+  },
+  {
+    type: "Materiais em PDF",
+    title: "Kit Estratégico em PDF",
+    desc: "Resumos objetivos, mapas mentais visuais e cadernos de questões gabaritadas e comentadas para estudo dinâmico.",
+    price: "Consulte o catálogo",
+    accent: "light",
+    cta: "Garantir kit",
+    href: "/materiais",
+    external: false,
+  },
+] as const;
