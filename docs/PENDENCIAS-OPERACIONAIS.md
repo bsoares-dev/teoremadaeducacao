@@ -3,7 +3,28 @@
 Verificação: 08/10/2026 (São Paulo). Etapa 9 ainda EM VALIDAÇÃO.
 Este checklist não autoriza a etapa 10 nem a publicação comercial.
 
-### Atualização de 11/10/2026 — backup e publicação solicitados
+### Atualização de 11/10/2026 — exportação criptografada de backup
+
+Backup real criado fora do OneDrive/cache do aplicativo, em pasta privada com
+acesso apenas ao operador/SYSTEM. Banco PostgreSQL completo em formato customizado,
+roles sem senhas, manifesto, configurações locais selecionadas e três buckets
+incluídos. No momento havia quatro contas/perfis, quatro produtos, 17 migrations
+e zero objetos de Storage. SHA-256 e decifragem autenticada conferidos após gravação
+e novamente por inspeção offline, sem acessar produção.
+[Evidências e comandos](BACKUP-E-RECUPERACAO.md).
+
+**Recuperação funcional permanece pendente.** Docker para ensaio local foi
+autorizado; instalador oficial baixado com assinatura válida. WSL ainda ausente:
+o responsável precisa instalá-lo como administrador, reiniciar se solicitado,
+concluir o instalador/revisar os termos e abrir Docker Desktop. Nenhum contrato
+foi aceito pelo agente nem houve reset/restore de produção.
+
+Também falta definir uma segunda cópia criptografada em dispositivo/local
+independente e completar a conferência das configurações externas em cofre.
+A publicação comercial permanece bloqueada. Não foi criada migration, alterado
+frontend, SMTP/Auth, segredo ou flag. `.env.example` continua excluído.
+
+### Histórico de 11/10/2026 — preparação inicial de backup e publicação
 
 O responsável autorizou executar backup/recuperação e, depois de sua validação,
 publicação comercial. [Procedimento e estado atual](BACKUP-E-RECUPERACAO.md).

@@ -4,7 +4,7 @@ import { readdir, readFile } from "node:fs/promises";
 import nextEnv from "@next/env";
 
 nextEnv.loadEnvConfig(process.cwd());
-const names = ["SUPABASE_SERVICE_ROLE_KEY", "POSTGRES_URL", "ENCRYPTION_KEY", "ADMIN_PASSWORD", "TEOREMA_TEST_ADMIN_PASSWORD", "PDF_LICENSE_SECRET", "TEOREMA_BACKUP_DB_URL"];
+const names = ["SUPABASE_SERVICE_ROLE_KEY", "POSTGRES_URL", "ENCRYPTION_KEY", "ADMIN_PASSWORD", "TEOREMA_TEST_ADMIN_PASSWORD", "PDF_LICENSE_SECRET", "TEOREMA_BACKUP_DB_URL", "TEOREMA_BACKUP_PASSPHRASE"];
 const secrets = names.filter(name => process.env[name]?.length >= 8).map(name => ({ name, value: process.env[name] }));
 const files = [];
 async function walk(dir) {

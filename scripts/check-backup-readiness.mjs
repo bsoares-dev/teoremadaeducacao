@@ -4,6 +4,7 @@ import path from "node:path";
 import nextEnv from "@next/env";
 import { createClient } from "@supabase/supabase-js";
 import { BACKUP_PROJECT_URL, databaseBackupConnectionConfigured, backupDirectoryOutsideWorkspace, backupReadinessSummary } from "./backup/readiness.mjs";
+import { postgresTools } from "./backup/native-tools.mjs";
 
 nextEnv.loadEnvConfig(process.cwd());
 const run = promisify(execFile);
@@ -16,14 +17,15 @@ async function toolAvailable(binary) {
 
 // Deliberately no writes, Auth mutations, SQL execution, export or auto-install.
 async function main() {
-  const directory = process.env.TEOREMA_BACKUP_DIR || (process.env.LOCALAPPDATA &&
-    path.join(process.env.LOCALAPPDATA, "CodeCommerce", "TeoremaBackups"));
+  const directory = process.env.TEOREMA_BACKUP_DIR || (process.env.USERPROFILE &&
+    path.join(process.env.USERPROFILE, "CodeCommerce", "TeoremaBackups"));
   const remoteReadable = process.env.NEXT_PUBLIC_SUPABASE_URL === BACKUP_PROJECT_URL &&
     Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const tools = postgresTools(process.env);
   const [pgDump, pgRestore, psql] = await Promise.all([
-    toolAvailable(process.env.TEOREMA_PG_DUMP_BIN || "pg_dump"),
-    toolAvailable(process.env.TEOREMA_PG_RESTORE_BIN || "pg_restore"),
-    toolAvailable(process.env.TEOREMA_PSQL_BIN || "psql"),
+    toolAvailable(tools.dump),
+    toolAvailable(tools.restore),
+    toolAvailable(tools.sql),
   ]);
   const summary = backupReadinessSummary({
     connection: databaseBackupConnectionConfigured(process.env.TEOREMA_BACKUP_DB_URL),
