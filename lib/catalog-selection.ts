@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { commercialFeatureEnabled, type CommerceEnvironment } from "./commerce-policy";
 
 export const SELECTION_KEY = "teorema:pdf-selection:v1";
 export const SELECTION_LIMIT = 50;
@@ -33,9 +34,10 @@ export function materialStates(ids: string[], available: string[], owned: string
   return Object.fromEntries(ids.map(id => [id, acquired.has(id) ? "owned" : published.has(id) ? "available" : "unavailable"]));
 }
 
-export function selectionPreviewEnabled(env: { TEOREMA_CATALOG_SELECTION_ENABLED?: string; VERCEL_ENV?: string; NODE_ENV?: string }) {
-  return env.TEOREMA_CATALOG_SELECTION_ENABLED === "true" &&
-    (env.VERCEL_ENV === "preview" || (!env.VERCEL_ENV && env.NODE_ENV === "development"));
+// Historical name retained to keep every existing page/API on the same policy.
+// Production is now supported; this function does not grant access to a PDF.
+export function selectionPreviewEnabled(env: CommerceEnvironment) {
+  return commercialFeatureEnabled(env.TEOREMA_CATALOG_SELECTION_ENABLED, env);
 }
 
 export function publicCover(value: string | null, projectUrl: string | undefined): string | null {

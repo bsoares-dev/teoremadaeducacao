@@ -161,7 +161,7 @@ export default function Cart({ userId }: { userId: string }) {
     </section><aside className="pdf-cart-summary" aria-label="Resumo do carrinho"><p className="eyebrow">Seu carrinho</p><h2>Resumo da seleção</h2><p>{cart.items.length} {cart.items.length === 1 ? "material" : "materiais"} · uma unidade de cada PDF</p>
       <div className="pdf-cart-total"><span>Total atual</span><strong>{cartMoney(cart.totalCents)}</strong></div>
       {cart.hasBlockedItems && <p>Materiais indisponíveis ou já adquiridos não entram no total. Remova-os antes de continuar.</p>}
-      <button disabled={busy || hasPending || pendingOrder || cart.hasBlockedItems || !!error} onClick={() => setReview(cart)}>Revisar pedido</button><p className="pdf-cart-preview">Prévia de atendimento. Você revisará os valores antes de registrar o pedido. O pagamento será combinado pelo WhatsApp; nenhum PDF é liberado automaticamente.</p>
+      <button disabled={busy || hasPending || pendingOrder || cart.hasBlockedItems || !!error} onClick={() => setReview(cart)}>Revisar pedido</button><p className="pdf-cart-preview">Você revisará os valores antes de registrar o pedido. O pagamento será combinado pelo WhatsApp; o acesso ao PDF será liberado após a confirmação da compra pela equipe.</p>
     </aside></div> : null}
     <footer className="pdf-cart-footer"><button disabled={busy} onClick={() => run()}><RefreshCw size={15} aria-hidden="true" />Atualizar e recuperar seleção</button></footer>
     <dialog ref={dialog} className="order-review" aria-labelledby="review-title" onCancel={event => { if (busy) event.preventDefault(); else setReview(null); }}>

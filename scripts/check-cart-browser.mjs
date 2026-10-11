@@ -12,6 +12,9 @@ import { fixtureSelect, fixtureTables } from "./fixtures/rest-select.mjs";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : "playwright");
 const productionBuild = process.env.TEOREMA_BROWSER_PRODUCTION === "true";
+const deploymentEnvironment = process.env.TEOREMA_BROWSER_VERCEL_ENV || "preview";
+assert.ok(["preview", "production"].includes(deploymentEnvironment), "Only isolated Preview/Production environments are supported");
+assert.ok(deploymentEnvironment !== "production" || productionBuild, "Production release must be tested with next build/start, not next dev");
 const fixturePdfLimit = process.env.TEOREMA_FIXTURE_PDF_MAX_DOWNLOADS || "0";
 assert.ok(["0", "6"].includes(fixturePdfLimit), "Fixture supports unlimited or the explicit six-copy quota scenario");
 // Production CSP requires HTTPS even in this isolated transport. Trust only
@@ -156,14 +159,14 @@ const fixture = transportServer(async (req, res) => {
   } catch (error) { res.writeHead(error.code ? 400 : 500); res.end(JSON.stringify({ code: error.code || "FIXTURE", message: error.message })); }
 });
 await new Promise(resolve => fixture.listen(54142, "127.0.0.1", resolve));
-const fixtureEnv = { ...process.env, NODE_ENV: productionBuild ? "production" : "development", VERCEL_ENV: "preview",
+const fixtureEnv = { ...process.env, NODE_ENV: productionBuild ? "production" : "development", VERCEL_ENV: deploymentEnvironment,
     ...(productionBuild ? { NODE_EXTRA_CA_CERTS: process.env.TEOREMA_FIXTURE_TLS_CERT } : {}),
     TEOREMA_CATALOG_SELECTION_ENABLED: "true", TEOREMA_CART_ENABLED: "true", PDF_MAX_DOWNLOADS: fixturePdfLimit, PDF_ENCRYPTION_ENABLED: "false", NEXT_PUBLIC_SUPABASE_URL: api,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "local-public-fixture", SUPABASE_SERVICE_ROLE_KEY: serviceKey };
 let output = "", browser, child;
 try {
   if (productionBuild) {
-    console.log("Building production Next runtime with isolated test credentials and preview-only commerce flags.");
+    console.log(`Building production Next runtime with isolated test credentials and VERCEL_ENV=${deploymentEnvironment}.`);
     child = spawn(process.execPath, ["node_modules/next/dist/bin/next", "build"], {
       windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: fixtureEnv,
     });

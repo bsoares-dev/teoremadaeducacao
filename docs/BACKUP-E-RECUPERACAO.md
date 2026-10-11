@@ -4,8 +4,10 @@
 
 EM VALIDAÇÃO. **Exportação criptografada real criada e integridade conferida;
 recuperação funcional ainda não executada.** A leitura do arquivo PostgreSQL não
-substitui uma restauração com Auth e Storage funcionando. A publicação comercial
-permanece bloqueada até essa validação e o aceite integrado de vendas/download.
+substitui uma restauração com Auth e Storage funcionando. Posteriormente, em
+11/10/2026, o responsável solicitou deixar esta etapa de lado e liberar as travas
+comerciais independentemente dela. [Decisão e escopo](PUBLICACAO-COMERCIAL.md).
+Esta exceção não declara recuperação verificada; o pacote existente foi preservado.
 
 O responsável escolheu uma pasta privada fora do OneDrive e recuperação em ambiente
 local isolado e autorizou Docker para esse ensaio. Destino efetivo:

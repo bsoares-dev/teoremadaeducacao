@@ -1,9 +1,27 @@
 # Pendências operacionais — Teorema da Educação
 
-Verificação: 08/10/2026 (São Paulo). Etapa 9 ainda EM VALIDAÇÃO.
-Este checklist não autoriza a etapa 10 nem a publicação comercial.
+As seções de 08/10/2026 abaixo são históricas; a etapa 9 real permanece em
+validação. A decisão atual de liberação foi explicitamente alterada pelo responsável.
 
-### Atualização de 11/10/2026 — exportação criptografada de backup
+### Atualização de 11/10/2026 — liberação comercial solicitada diretamente
+
+O responsável solicitou **ignorar a etapa de backup e liberar as travas do site**.
+A liberação em Production passa a ser tratada sem exigir a recuperação isolada,
+que permanece não executada. Nenhum arquivo de backup foi removido e nenhuma
+configuração da máquina foi alterada nesta entrega.
+[Escopo, desligamento controlado e operação do admin](PUBLICACAO-COMERCIAL.md).
+
+Os bloqueios exclusivos de Preview foram substituídos por uma política única:
+Production habilitado por padrão, `false` explícito preservado como desligamento,
+Preview/desenvolvimento ainda opt-in, valores inválidos e ambientes desconhecidos
+negados. Compra confirmada, sessão, UUID administrativo privado, RLS e proteção do
+PDF original continuam obrigatórios. Não foram publicados produtos de teste.
+
+Catálogo definitivo ainda precisa de cadastro/envio/publicação pelo administrador;
+duas contas administrativas aguardam primeiro acesso. A liberação não conclui
+SMTP, upload remoto, aceite comercial real nem as pendências históricas abaixo.
+
+### Histórico de 11/10/2026 — exportação criptografada de backup
 
 Backup real criado fora do OneDrive/cache do aplicativo, em pasta privada com
 acesso apenas ao operador/SYSTEM. Banco PostgreSQL completo em formato customizado,

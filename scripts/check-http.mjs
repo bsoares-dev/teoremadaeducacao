@@ -22,13 +22,23 @@ for (const path of ["/api/profile", "/api/admin/dashboard?section=users", "/api/
   assert.equal(response.status, 401);
   assert.match(response.headers.get("cache-control") || "", /no-store/);
 }
-// The commercial flow remains gated in a production build, even with flags true.
-assert.equal((await get("/meus-materiais")).status, 404);
-for (const path of ["/api/library", "/api/library/download"]) {
-  const response = await get(path, path.endsWith("download") ? { method: "POST", headers: { origin: base, "content-type": "application/json" }, body: "{}" } : {});
-  assert.equal(response.status, 404); assert.match(response.headers.get("cache-control") || "", /no-store/);
+// Authorized release reaches authentication, not the old Production-only 404.
+// No cookies, valid signup, purchase, upload or payment are submitted here.
+for (const path of ["/meus-materiais", "/pedidos"]) {
+  const response = await get(path);
+  assert.equal(response.status, 307);
+  assert.match(response.headers.get("location") || "", /^\/login\?next=/);
 }
-console.log("Biblioteca e download: bloqueados em produção");
+for (const path of ["/api/cart", "/api/orders", "/api/library", "/api/library/download", "/api/admin/orders", "/api/admin/access", "/api/admin/pdf-licenses"]) {
+  const post = path === "/api/orders" || path.endsWith("download");
+  const response = await get(path, post ? { method: "POST", headers: { origin: base, "content-type": "application/json" }, body: "{}" } : {});
+  assert.equal(response.status, 401, path + " must require authentication after release");
+  assert.match(response.headers.get("cache-control") || "", /no-store/);
+}
+const selection = await get("/api/catalog/selection", { method: "POST", headers: { origin: base, "content-type": "application/json" }, body: '{"ids":[]}' });
+assert.equal(selection.status, 200, "Catalog selection must be available without granting access");
+assert.deepEqual(await selection.json(), { states: {}, cartIds: [] });
+console.log("Fluxo comercial disponível; APIs de compras/download/admin exigem autenticação.");
 const oldCookie = await get("/api/admin/dashboard?section=users", { headers: { cookie: "teorema_admin_session=admin.fake.fake" } });
 assert.equal(oldCookie.status, 401, "legacy cookie cannot authorize admin");
 assert.equal((await get("/api/admin/login", { method: "POST" })).status, 410);

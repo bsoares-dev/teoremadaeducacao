@@ -2,6 +2,11 @@
 
 Edição 01, 11/10/2026. Guia de operação preparado pela Code&Commerce.
 
+Atualização posterior no mesmo dia: a liberação comercial foi autorizada
+diretamente pelo responsável. [Estado atual e roteiro de operação](PUBLICACAO-COMERCIAL.md).
+O PDF da edição 01 permanece como entregue; suas notas sobre ativação condicional
+descrevem o estado no momento da geração, não a política atual de Production.
+
 Entrega: `output/pdf/Manual-Administrativo-Teorema-da-Educacao.pdf`.
 São 12 páginas A4 com texto pesquisável, fontes incorporadas, marcadores de
 navegação e sumário interno clicável. O manual não é publicado em `public/`.

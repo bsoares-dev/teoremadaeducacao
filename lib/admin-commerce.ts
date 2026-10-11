@@ -19,7 +19,7 @@ export function commerceDbError(error: { code?: string } | null) {
   throw new CommerceError("Resultado não confirmado. Consulte o pedido e recupere a mesma tentativa.", 503);
 }
 export async function commerceAdmin() {
-  if (!cartPreviewEnabled(process.env)) throw new CommerceError("Gestão de pedidos disponível somente na prévia autorizada.", 404);
+  if (!cartPreviewEnabled(process.env)) throw new CommerceError("Gestão de pedidos temporariamente desativada.", 404);
   const access = await adminAccess();
   if (!access.user) throw new CommerceError("Sessão encerrada.", 401);
   if (!access.allowed) throw new CommerceError("Acesso negado.", 403);

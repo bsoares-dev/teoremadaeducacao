@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { selectionPreviewEnabled } from "./catalog-selection";
+import { commercialFeatureEnabled, type CommerceEnvironment } from "./commerce-policy";
 
 const id = z.string().uuid();
 export const cartMutation = z.object({
@@ -20,8 +21,8 @@ export const cartResult = z.object({ cart: cartSnapshot, acceptedIds: z.array(id
   rejected: z.array(z.object({ id, reason: z.enum(["owned", "unavailable", "limit"]) })).max(50),
 });
 export type CartResult = z.infer<typeof cartResult>;
-export function cartPreviewEnabled(env: Parameters<typeof selectionPreviewEnabled>[0] & { TEOREMA_CART_ENABLED?: string }) {
-  return env.TEOREMA_CART_ENABLED === "true" && selectionPreviewEnabled(env);
+export function cartPreviewEnabled(env: CommerceEnvironment) {
+  return commercialFeatureEnabled(env.TEOREMA_CART_ENABLED, env) && selectionPreviewEnabled(env);
 }
 export const cartMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 export function remainingSelection(current: string[], accepted: string[]) {

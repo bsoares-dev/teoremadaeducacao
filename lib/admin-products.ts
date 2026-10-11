@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "./supabaseAdmin";
 import { productSchema } from "./schemas";
 import { uuid, PDF_LIMIT, COVER_LIMIT, STAGING_BUCKET, readBounded } from "./uploads";
 import { requestLimitResponse } from "./request-limits";
+import { productUploadsEnabled } from "./commerce-policy";
 
 export const editProductSchema = productSchema.omit({ imageUrl: true }).extend({ id: uuid, revision: z.number().int().nonnegative() }).strict();
 export const stateSchema = z.object({ state: z.enum(["PUBLISHED", "UNPUBLISHED", "ARCHIVED"]), revision: z.number().int().positive(), operationId: uuid }).strict();
@@ -25,7 +26,7 @@ export async function productAdmin() {
   const access = await adminAccess();
   if (!access.user) throw new AdminError("Sessão encerrada.", 401);
   if (!access.allowed) throw new AdminError("Acesso negado.", 403);
-  if (process.env.TEOREMA_PRODUCT_UPLOADS_ENABLED !== "true") throw new AdminError("Gestão de PDFs aguardando ativação da migração e dos buckets. Nenhum produto será publicado pelo formulário antigo.", 503);
+  if (!productUploadsEnabled(process.env)) throw new AdminError("Gestão de PDFs temporariamente desativada.", 503);
   const db = getSupabaseAdmin();
   const { error } = await db.rpc("teorema_admin_check", { p_actor_id: access.user.id });
   dbError(error);

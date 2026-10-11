@@ -31,10 +31,12 @@ test("status request rejects identity, prices, paths and unbounded selection", (
   }
 });
 
-test("incomplete checkout is never activated in production, even with flag true", () => {
+test("authorized production catalog is enabled, with explicit disabling and preview opt-in preserved", () => {
   const flag = { TEOREMA_CATALOG_SELECTION_ENABLED: "true" };
-  assert.equal(selectionPreviewEnabled({ ...flag, VERCEL_ENV: "production" }), false);
-  assert.equal(selectionPreviewEnabled({ ...flag, NODE_ENV: "production" }), false);
+  assert.equal(selectionPreviewEnabled({ ...flag, VERCEL_ENV: "production" }), true);
+  assert.equal(selectionPreviewEnabled({ ...flag, NODE_ENV: "production" }), true);
+  assert.equal(selectionPreviewEnabled({ VERCEL_ENV: "production" }), true);
+  assert.equal(selectionPreviewEnabled({ TEOREMA_CATALOG_SELECTION_ENABLED: "false", VERCEL_ENV: "production" }), false);
   assert.equal(selectionPreviewEnabled({ ...flag, VERCEL_ENV: "preview", NODE_ENV: "production" }), true);
   assert.equal(selectionPreviewEnabled({ ...flag, NODE_ENV: "development" }), true);
   assert.equal(selectionPreviewEnabled({ VERCEL_ENV: "preview" }), false);

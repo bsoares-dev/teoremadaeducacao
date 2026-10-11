@@ -14,7 +14,7 @@ export class LibraryError extends Error {
   constructor(message: string, public status: number) { super(message); }
 }
 export async function libraryAuth() {
-  if (!cartPreviewEnabled(process.env)) throw new LibraryError("Biblioteca disponível somente na prévia autorizada.", 404);
+  if (!cartPreviewEnabled(process.env)) throw new LibraryError("Biblioteca temporariamente desativada.", 404);
   const { user, supabase } = await getAuth();
   if (!user) throw new LibraryError("Sessão encerrada. Entre novamente.", 401);
   if (!user.email_confirmed_at || user.is_anonymous) throw new LibraryError("Confirme seu e-mail antes de acessar os materiais.", 403);

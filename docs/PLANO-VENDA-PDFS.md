@@ -2,12 +2,13 @@
 
 ## Documento de referência
 
-Atualização operacional de 11/10/2026: responsável solicitou **backup e recuperação,
-seguido de publicação comercial**. Backup em preparação, com destino privado fora
-do OneDrive e recuperação local isolada escolhidos. A conexão PostgreSQL e as
-ferramentas locais ainda precisam ser configuradas. Ver
-[BACKUP-E-RECUPERACAO.md](BACKUP-E-RECUPERACAO.md). Etapa 10 autorizada para depois
-da validação do backup e aceite integrado; travas permanecem até esses critérios.
+Decisão atual de 11/10/2026: o responsável solicitou explicitamente **deixar o
+backup de lado e liberar as travas comerciais**. Isso substitui a ordem anterior,
+sem declarar recuperação ou homologação real concluídas. A liberação mantém
+sessão, permissões, compra confirmada e proteção dos PDFs; não publica ensaios ou
+modifica dados automaticamente. Ver [PUBLICACAO-COMERCIAL.md](PUBLICACAO-COMERCIAL.md).
+Backup criptografado real foi criado/verificado, mas recuperação isolada continua
+não executada. Ver [BACKUP-E-RECUPERACAO.md](BACKUP-E-RECUPERACAO.md).
 Os estados/contagens datados de 08/10 abaixo são históricos e não substituem esta
 conferência: atualmente 17 migrations, quatro contas/perfis, zero produtos
 publicados, zero PDFs validados e três buckets sem objetos.

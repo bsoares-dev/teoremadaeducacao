@@ -23,9 +23,11 @@ test("acknowledgement removes only accepted IDs, preserves rejected and concurre
   assert.deepEqual(remainingSelection(ids, [ids[0]]), ids.slice(1));
   assert.deepEqual(remainingSelection(ids, []), ids);
 });
-test("cart remains opt-in and cannot expose incomplete checkout in production", () => {
+test("authorized production commerce is enabled; preview requires opt-in and explicit false stops commerce", () => {
   const enabled = { TEOREMA_CART_ENABLED: "true", TEOREMA_CATALOG_SELECTION_ENABLED: "true" };
-  assert.equal(cartPreviewEnabled({ ...enabled, VERCEL_ENV: "production" }), false);
+  assert.equal(cartPreviewEnabled({ ...enabled, VERCEL_ENV: "production" }), true);
+  assert.equal(cartPreviewEnabled({ VERCEL_ENV: "production" }), true);
+  assert.equal(cartPreviewEnabled({ ...enabled, TEOREMA_CART_ENABLED: "false", VERCEL_ENV: "production" }), false);
   assert.equal(cartPreviewEnabled({ ...enabled, VERCEL_ENV: "preview" }), true);
   assert.equal(cartPreviewEnabled({ ...enabled, NODE_ENV: "development" }), true);
   assert.equal(cartPreviewEnabled({ TEOREMA_CART_ENABLED: "true", VERCEL_ENV: "preview" }), false);
