@@ -14,10 +14,17 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [registerHref, setRegisterHref] = useState("/cadastro");
+  const [recoveryHref, setRecoveryHref] = useState("/auth/recuperar");
+  const [passwordUpdated, setPasswordUpdated] = useState(false);
 
   useEffect(() => {
     const next = new URLSearchParams(window.location.search).get("next");
-    if (next) setRegisterHref("/cadastro?next=" + encodeURIComponent(safeNext(next, "/carrinho")));
+    if (next) {
+      const query = "?next=" + encodeURIComponent(safeNext(next, "/carrinho"));
+      setRegisterHref("/cadastro" + query);
+      setRecoveryHref("/auth/recuperar" + query);
+    }
+    setPasswordUpdated(new URLSearchParams(window.location.search).get("password") === "updated");
     if (new URLSearchParams(window.location.search).get("confirmation") === "invalid") {
       setFeedback("O link de confirmação é inválido, expirou ou foi aberto em outro navegador. Se você já confirmou seu e-mail, entre com sua senha.");
     }
@@ -27,6 +34,7 @@ export default function LoginPage() {
     event.preventDefault();
     setLoading(true);
     setFeedback("");
+    setPasswordUpdated(false);
 
     try {
       const supabase = createClient();
@@ -66,12 +74,14 @@ export default function LoginPage() {
             <label htmlFor="login-password">Senha</label>
             <input id="login-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" minLength={6} required />
           </div>
+          <Link className="auth-recovery-link" href={recoveryHref}>Esqueci minha senha</Link>
           <button className="auth-submit" type="submit" disabled={loading}>
             {loading ? "Entrando..." : "Entrar"}<ArrowUpRight className="ui-icon" size={18} aria-hidden="true" />
           </button>
         </form>
 
         {feedback && <p className="auth-feedback" role="alert">{feedback}</p>}
+        {passwordUpdated && <p className="auth-feedback success" role="status">Senha alterada. Entre usando sua nova senha.</p>}
         <Link className="auth-switch" href={registerHref}>Ainda não tenho uma conta</Link>
       </section>
       <p className="auth-footer">A educação transforma quando encontra o próximo passo.</p>

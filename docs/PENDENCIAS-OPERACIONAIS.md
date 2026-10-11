@@ -28,6 +28,15 @@ As evidências de 08/10 abaixo permanecem como histórico, não como diagnóstic
 Nenhum recurso pago, reset/restore de produção, upgrade, segredo ou flag comercial
 foi alterado na preparação. `.env.example` permanece excluído conforme solicitado.
 
+### Atualização de 11/10/2026 — recuperação de senha
+
+Implementado o link no login e as páginas de envio e nova senha. [Uso e segurança](RECUPERACAO-DE-SENHA.md).
+164 testes, TypeScript, lint, build e ensaios de navegador com Auth simulado
+aprovados. Não houve migração, mudança de permissões, confirmação geral, SMTP,
+segredos ou flags comerciais. Entrega real do e-mail e aceite com uma conta do
+titular ainda precisam de ensaio autorizado; não confundir testes locais com
+essa validação externa. Os itens históricos abaixo continuam preservados.
+
 ## Estado verificado
 
 | Controle | Evidência | Estado |

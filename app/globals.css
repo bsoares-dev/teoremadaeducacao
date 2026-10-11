@@ -860,6 +860,9 @@ h2 em {
 .account-notice.error { color: #a5362d; }
 .auth-page { --navy: #0f2840; --paper: #f7f5f0; }
 .auth-switch { width: fit-content; text-align: center; }
+.auth-recovery-link { justify-self: end; display: inline-flex; align-items: center; min-height: 44px; color: var(--blue); font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }
+.auth-recovery-link:hover { color: var(--navy); }
+.auth-recovery-status { margin-top: 28px; color: #5b6870; line-height: 1.6; }
 .register-form { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .register-field-full, .register-submit { grid-column: 1 / -1; }
 .register-form .auth-field { min-width: 0; }
