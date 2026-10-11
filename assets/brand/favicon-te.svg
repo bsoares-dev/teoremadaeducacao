@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-labelledby="title">
+  <title id="title">Teorema da Educação - TE</title>
+  <rect width="192" height="192" fill="#0d334e" />
+  <rect x="13" y="13" width="166" height="166" rx="12" fill="none" stroke="#b1a28b" stroke-width="2" />
+  <g fill="#b1a28b">
+    <path d="M35 52H101V75H94L91 60H78V136L92 138V145H46V138L61 136V60H45L42 75H35Z" />
+    <path d="M103 52H157V74H150L146 60H127V92H139L141 81H148V111H141L139 100H127V137H147L152 119H160L157 145H103V138L111 136V61L103 59Z" />
+  </g>
+</svg>
