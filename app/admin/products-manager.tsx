@@ -2,18 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { Upload } from "tus-js-client";
 import { uploadSchema } from "@/lib/uploads";
+import { transferUpload } from "@/lib/upload-transfer";
 import { adminProductListUrl } from "@/lib/admin-product-list";
 
 type Product = { id: string; name: string; description: string; price: number; image_url: string; publication_status: "DRAFT" | "PUBLISHED" | "UNPUBLISHED" | "ARCHIVED"; revision: number };
 type Version = { id: string; version: number; version_label: string; size_bytes: number; validation_status: string; is_current: boolean; created_at: string };
 type Pending = { id: string; kind: string; state: string; original_name: string; rejection_reason: string | null };
 type Detail = { product: Product; files: Version[]; uploads: Pending[] };
-type Ticket = { uploadId: string; bucket: string; path: string; token: string; endpoint: string };
+type Ticket = { uploadId: string; uploadUrl: string };
 const blank = { name: "", description: "", price: "" };
 const labels = { DRAFT: "Rascunho", PUBLISHED: "Publicado", UNPUBLISHED: "Despublicado", ARCHIVED: "Arquivado" };
-const fileLabels: Record<string, string> = { UPLOADING: "Pendente", VALIDATED: "Validado", REJECTED: "Rejeitado" };
+const fileLabels: Record<string, string> = { UPLOADING: "Envio não concluído", VALIDATED: "Pronto", REJECTED: "Não concluído" };
 
 export default function ProductsManager() {
   const router = useRouter();
@@ -26,7 +26,8 @@ export default function ProductsManager() {
   const [form, setForm] = useState(blank), [file, setFile] = useState<File | null>(null);
   const [kind, setKind] = useState<"PDF" | "COVER">("PDF"), [versionLabel, setVersionLabel] = useState("");
   const [progress, setProgress] = useState(0), [phase, setPhase] = useState("");
-  const draftId = useRef<string | null>(null), uploadId = useRef<string | null>(null), activeUpload = useRef<Upload | null>(null);
+  const draftId = useRef<string | null>(null), uploadId = useRef<string | null>(null), activeUpload = useRef<AbortController | null>(null);
+  const fileInput = useRef<HTMLInputElement | null>(null);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; void activeUpload.current?.abort(); }; }, []);
 
@@ -73,7 +74,7 @@ export default function ProductsManager() {
       const id = selected || (draftId.current ||= crypto.randomUUID());
       const result = await api<{ product: Product }>("/api/admin/products", { ...form, id, revision: detail?.product.revision || 0 });
       setSelected(result.product.id); await reloadDetail(id); draftId.current = null;
-      setNotice("Dados salvos. O produto só será vendido depois de validar PDF e capa e clicar em Publicar.");
+      setNotice("Dados salvos. Envie o PDF e a capa e depois clique em Publicar.");
     } catch (err) { report(err); } finally { setBusy(false); }
   }
 
@@ -100,27 +101,21 @@ export default function ProductsManager() {
       const id = uploadId.current ||= crypto.randomUUID();
       const parsed = uploadSchema.parse({ id, kind, name: file.name, size: file.size, mime: file.type, versionLabel });
       const ticket = await api<Ticket>(`/api/admin/products/${detail.product.id}/uploads`, parsed);
-      const tus = await import("tus-js-client");
       setPhase("Enviando para a área privada...");
-      await new Promise<void>((resolve, reject) => {
-        const upload = new tus.Upload(file, {
-          endpoint: ticket.endpoint, headers: { "x-signature": ticket.token }, chunkSize: 6 * 1024 * 1024,
-          retryDelays: [0, 1000, 3000, 5000], uploadDataDuringCreation: true, removeFingerprintOnSuccess: true,
-          storeFingerprintForResuming: false, // Do not persist upload tokens/URLs in browser storage.
-          metadata: { bucketName: ticket.bucket, objectName: ticket.path, contentType: file.type, cacheControl: "0" },
-          onProgress: (sent, size) => { if (mounted.current) setProgress(Math.round(sent / size * 100)); },
-          onError: () => reject(new Error("Envio interrompido. Você pode tentar novamente ou validar o envio pendente se o arquivo já chegou.")),
-          onSuccess: () => resolve(),
-        });
-        activeUpload.current = upload; upload.start();
-      });
-      setPhase("Validando o arquivo no servidor...");
+      const controller = new AbortController(); activeUpload.current = controller;
+      await transferUpload(file, ticket.uploadUrl, parsed.mime,
+        value => { if (mounted.current) setProgress(value); }, controller.signal);
+      setPhase("Preparando o arquivo automaticamente...");
       await finalize(detail.product.id, ticket.uploadId);
-      setFile(null); uploadId.current = null; setNotice(kind === "PDF" ? "Nova versão validada. Versões anteriores e compras existentes foram preservadas." : "Capa validada e otimizada em WebP.");
+      setFile(null); uploadId.current = null; if (fileInput.current) fileInput.current.value = "";
+      setNotice(kind === "PDF" ? "PDF pronto. Com a capa enviada, clique em Publicar. Versões anteriores e compras foram preservadas." : "Capa pronta. Com o PDF enviado, clique em Publicar.");
     } catch (err) {
       if (err instanceof Error && err.name === "ZodError") setError("Confira formato, extensão e limite do arquivo: PDF 20 MiB; capa 5 MiB.");
       else report(err);
-      if (detail) { try { await reloadDetail(detail.product.id); } catch { /* Keep actionable original error. */ } }
+      if (detail) { try {
+        const latest = await api<Detail>(`/api/admin/products/${detail.product.id}`); setDetail(latest); setRefresh(v => v + 1);
+        if (latest.uploads.some(u => u.id === uploadId.current && u.state === "REJECTED")) uploadId.current = null;
+      } catch { /* Keep actionable original error. */ } }
     } finally { activeUpload.current = null; if (mounted.current) { setBusy(false); setPhase(""); } }
   }
 
@@ -130,7 +125,7 @@ export default function ProductsManager() {
     try {
       if (action === "finalize") await finalize(detail.product.id, id);
       else { await api(`/api/admin/products/${detail.product.id}/uploads/${id}`, { action }); await reloadDetail(detail.product.id); }
-      setNotice(action === "finalize" ? "Arquivo validado." : "Envio cancelado. Limpeza dos temporários poderá ser feita após 48 horas.");
+      setNotice(action === "finalize" ? "Arquivo pronto para publicar." : "Envio cancelado. Limpeza dos temporários poderá ser feita após 48 horas.");
     } catch (err) { report(err); } finally { setBusy(false); }
   }
   async function cleanup() {
@@ -174,22 +169,23 @@ export default function ProductsManager() {
           <fieldset disabled={busy}><legend>Arquivos do material</legend>
             <label>Tipo de envio<select value={kind} onChange={e => { setKind(e.target.value as "PDF" | "COVER"); setFile(null); uploadId.current = null; }}><option value="PDF">PDF privado · até 20 MiB</option><option value="COVER">Capa · até 5 MiB</option></select></label>
             {kind === "PDF" ? <label>Identificação da versão<input value={versionLabel} maxLength={40} placeholder="Ex.: Edição revisada — outubro" onChange={e => setVersionLabel(e.target.value)} /></label> : null}
-            <label className="upload-dropzone">{file ? file.name : "Selecione o arquivo"}<input key={kind} type="file" accept={kind === "PDF" ? ".pdf,application/pdf" : ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"} onChange={e => { setFile(e.target.files?.[0] || null); uploadId.current = null; }} /></label>
-            <p>PDFs estáticos, sem senha, scripts, anexos, formulários ou links externos. Atualizações substituem a versão atual para compradores autorizados, sem apagar versões anteriores.</p>
-            <button disabled={!file || busy}>Enviar e validar {kind === "PDF" ? "PDF" : "capa"}</button>
+            <label className="upload-dropzone">{file ? file.name : "Selecione o arquivo"}<input ref={fileInput} key={kind} type="file" accept={kind === "PDF" ? ".pdf,application/pdf" : ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"} onChange={e => { setFile(e.target.files?.[0] || null); uploadId.current = null; }} /></label>
+            <p>Envie seu PDF sem senha, de até 20 MiB. A preparação é automática; links comuns e formulários são aceitos. O original continua privado e o histórico é preservado.</p>
+            <button disabled={!file || busy}>Enviar {kind === "PDF" ? "PDF" : "capa"}</button>
           </fieldset>
           {phase ? <div className="upload-progress" role="status"><p>{phase}</p><progress max="100" value={progress} aria-label="Progresso do upload" /><span>{progress}% enviado</span></div> : null}
         </form> : <p>Material arquivado: histórico preservado e novas edições bloqueadas.</p>}
-        <div className="publication-actions"><p>{current ? `PDF atual: versão ${current.version_label}` : "PDF validado ainda não disponível."}</p>
+        <div className="publication-actions"><p>{current ? `PDF atual: versão ${current.version_label || current.version} · pronto` : "Envie um PDF para liberar a publicação. A preparação será automática."}</p>
+          {!archived && !detail.product.image_url ? <p>Falta a capa: selecione “Capa” no tipo de envio e adicione uma imagem.</p> : null}
           {!archived ? <><button disabled={busy || !current || !detail.product.image_url || detail.product.publication_status === "PUBLISHED"} onClick={() => changeState("PUBLISHED")}>Publicar</button>
             <button disabled={busy || detail.product.publication_status !== "PUBLISHED"} onClick={() => changeState("UNPUBLISHED")}>Despublicar</button>
             <button disabled={busy} onClick={() => changeState("ARCHIVED")}>Arquivar</button></> : null}</div>
         <details className="version-history" open><summary>Histórico de versões · {detail.files.length}</summary>
           {detail.files.length ? detail.files.map(v => <div key={v.id}><strong>v{v.version} · {v.version_label} {v.is_current ? "· atual" : ""}</strong><span>{fileLabels[v.validation_status]} · {(v.size_bytes / 1024 / 1024).toFixed(2)} MiB · {new Date(v.created_at).toLocaleDateString("pt-BR")}</span></div>) : <p>Nenhum PDF enviado.</p>}
         </details>
-        {detail.uploads.some(u => u.state !== "VALIDATED") ? <details className="version-history" open><summary>Envios pendentes ou rejeitados</summary>
+        {detail.uploads.some(u => u.state !== "VALIDATED") ? <details className="version-history"><summary>Envios não concluídos</summary>
           {detail.uploads.filter(u => u.state !== "VALIDATED").map(u => <div key={u.id}><strong>{u.original_name}</strong><span>{fileLabels[u.state]}{u.rejection_reason ? ` · ${u.rejection_reason}` : ""}</span>
-            {u.state === "UPLOADING" && !archived ? <div className="catalog-toolbar"><button disabled={busy} onClick={() => pendingAction(u.id, "finalize")}>Tentar validar novamente</button><button disabled={busy} onClick={() => pendingAction(u.id, "cancel")}>Cancelar envio</button></div> : null}</div>)}
+            {u.state === "UPLOADING" && !archived ? <div className="catalog-toolbar"><button disabled={busy} onClick={() => pendingAction(u.id, "finalize")}>Concluir envio</button><button disabled={busy} onClick={() => pendingAction(u.id, "cancel")}>Cancelar envio</button></div> : null}</div>)}
         </details> : null}
       </> : <p className="catalog-hint">Salve o rascunho para adicionar a capa e o PDF privado.</p>}
     </div>

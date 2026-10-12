@@ -9,7 +9,8 @@ export const uploadSchema = z.object({
   name: z.string().trim().min(1).max(160).refine(v => !/[\x00-\x1f/\\]/.test(v), "Nome de arquivo inválido."),
   size: z.number().int().positive(), mime: z.string(),
   versionLabel: z.string().trim().max(40).default(""),
-}).strict().superRefine((v, ctx) => {
+}).strict().transform(v => ({ ...v, mime: v.kind === "PDF" && /\.pdf$/i.test(v.name)
+  && ["", "application/octet-stream"].includes(v.mime) ? "application/pdf" : v.mime })).superRefine((v, ctx) => {
   const pdf = v.kind === "PDF";
   const extension = pdf ? /\.pdf$/i : /\.(jpe?g|png|webp)$/i;
   const mime = pdf ? v.mime === "application/pdf" : ["image/jpeg", "image/png", "image/webp"].includes(v.mime);

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { adminRoute, productAdmin, input, dbError, checkBuckets, storageBytes, productDetail, AdminError } from "@/lib/admin-products";
 import { uuid, PDF_LIMIT, COVER_LIMIT, STAGING_BUCKET, stagingKey, finalKey, type UploadRecord } from "@/lib/uploads";
-import { validatePdf, validateCover } from "@/lib/file-validation";
+import { validatePdf, validateCover, PdfValidationError, PdfProcessingError } from "@/lib/file-validation";
 import { privateJson } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -30,14 +30,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const bytes = await storageBytes(db, STAGING_BUCKET, stagingKey(upload), upload.kind === "PDF" ? PDF_LIMIT : COVER_LIMIT);
     let validated: Uint8Array;
     try {
-      if (bytes.length !== Number(upload.expected_size)) throw new Error("O tamanho recebido não corresponde ao arquivo reservado.");
+      if (bytes.length !== Number(upload.expected_size)) throw new PdfValidationError("O arquivo chegou incompleto. Selecione o PDF novamente e reenvie.", "FILE_SIZE_MISMATCH");
       if (upload.kind === "PDF") { await validatePdf(bytes); validated = bytes; }
       else validated = await validateCover(bytes, upload.mime_type);
-    } catch {
+    } catch (error) {
+      // A worker/runtime outage is not evidence of a bad PDF. Preserve the
+      // uploaded bytes and reservation so the admin can finish without reupload.
+      if (upload.kind === "PDF" && !(error instanceof PdfValidationError)) {
+        throw new AdminError(new PdfProcessingError().message, 503);
+      }
+      const reason = upload.kind === "PDF" && error instanceof PdfValidationError ? error.message
+        : "Capa rejeitada. Use JPEG, PNG ou WebP estático de até 5 MiB e 24 megapixels.";
       const rejected = await db.rpc("teorema_reject_upload", { p_actor_id: actor, p_upload_id: uploadId,
-        p_reason: "Arquivo rejeitado pela validação estrutural, assinatura, tamanho ou política de conteúdo." });
+        p_reason: reason });
       dbError(rejected.error);
-      throw new AdminError(upload.kind === "PDF" ? "PDF rejeitado. Exporte um PDF estático, sem senha, anexos, formulários, scripts ou links externos." : "Capa rejeitada. Use JPEG, PNG ou WebP estático de até 5 MiB e 24 megapixels.", 422);
+      throw new AdminError(reason, 422);
     }
     const sha256 = createHash("sha256").update(validated).digest("hex");
     const bucket = upload.kind === "PDF" ? "teorema-pdfs" : "teorema-covers";

@@ -70,7 +70,7 @@ export async function checkBuckets(db: ReturnType<typeof getSupabaseAdmin>) {
 }
 export async function storageBytes(db: ReturnType<typeof getSupabaseAdmin>, bucket: string, key: string, limit: number) {
   const { data, error } = await db.storage.from(bucket).createSignedUrl(key, 60);
-  if (error || !data) throw new AdminError("Arquivo não encontrado ou upload ainda incompleto. Tente validar novamente.", 409);
+  if (error || !data) throw new AdminError("O arquivo ainda não chegou ao armazenamento. Selecione-o acima e clique em Enviar novamente.", 409);
   // URL is generated from trusted bucket/key, never from client input. Do not log tokens.
   return readBounded(await fetch(data.signedUrl, { cache: "no-store", signal: AbortSignal.timeout(30000), redirect: "error" }), limit);
 }

@@ -83,7 +83,7 @@ async function upload(page, kind, bytes, label) {
       throw new Error(code);
     }),
   ]).then(response => ({ response }), error => ({ error }));
-  await page.getByRole("button", { name: kind === "PDF" ? "Enviar e validar PDF" : "Enviar e validar capa", exact: true }).click();
+  await page.getByRole("button", { name: kind === "PDF" ? "Enviar PDF" : "Enviar capa", exact: true }).click();
   const outcome = await result;
   if (outcome.error) throw outcome.error;
   const response = outcome.response;
@@ -140,15 +140,11 @@ try {
   // Never persist headers, request/response bodies, queries or signed URLs.
   admin.on("response", response => {
     const pathname = new URL(response.url()).pathname;
-    const boundary = pathname.startsWith("/storage/v1/upload/resumable") ? "TUS"
+    const boundary = pathname.startsWith("/storage/v1/object/upload/sign/") ? "signed-upload"
+      : pathname.startsWith("/storage/v1/upload/resumable") ? "TUS"
       : /^\/api\/admin\/products\/[^/]+\/uploads$/.test(pathname) ? "reservation"
       : /^\/api\/admin\/products\/[^/]+\/uploads\/[^/]+$/.test(pathname) ? "finalization" : null;
     if (boundary && manifest.network.length < 60) manifest.network.push({ boundary, method: response.request().method(), status: response.status() });
-  });
-  admin.on("request", request => {
-    if (!new URL(request.url()).pathname.startsWith("/storage/v1/upload/resumable") || request.method() === "OPTIONS") return;
-    const signature = request.headers()["x-signature"];
-    if (manifest.network.length < 60) manifest.network.push({ boundary: "TUS-signature-format", present: Boolean(signature), segments: signature?.split(".").length || 0 });
   });
   await login(admin, "bernardozsoares11@gmail.com", adminPassword, "/admin");
   adminPassword = undefined;

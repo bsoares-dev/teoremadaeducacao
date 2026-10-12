@@ -186,6 +186,16 @@ test("parallel/repeated renders reuse provided license and never share customer 
     watermarks(await PDFDocument.load(await renderPersonalizedPdf(input(bytes))), 0));
 });
 
+test("ordinary hyperlinks and forms remain compatible with personalized downloads", async () => {
+  const pdf = await PDFDocument.create(), page = pdf.addPage([595, 842]);
+  pdf.getForm().createTextField("Exercicio").addToPage(page, { x: 30, y: 300, width: 200, height: 25 });
+  pdf.catalog.set(PDFName.of("OpenAction"), pdf.context.obj([page.ref, "Fit"]));
+  const result = await PDFDocument.load(await renderPersonalizedPdf(input(await pdf.save())));
+  assert.equal(result.getPageCount(), 1);
+  assert.equal(watermarks(result, 0).length, 3);
+  assert.equal(result.getForm().getFields().length, 1);
+});
+
 test("invalid, truncated, encrypted or active-content PDFs fail closed; errors are sanitized", async () => {
   const bytes = await original();
   for (const invalid of [new Uint8Array(), new TextEncoder().encode("%PDF-1.7 invalid secret %%EOF"),

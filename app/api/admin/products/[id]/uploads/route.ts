@@ -19,7 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const url = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!);
     // Direct storage hostname as recommended for TUS; only supported Supabase hosted projects.
     if (url.hostname.endsWith(".supabase.co")) url.hostname = url.hostname.replace(".supabase.co", ".storage.supabase.co");
-    return privateJson({ uploadId: v.id, bucket: STAGING_BUCKET, path, token: signed.data.token,
+    return privateJson({ uploadId: v.id, uploadUrl: signed.data.signedUrl, bucket: STAGING_BUCKET, path, token: signed.data.token,
       endpoint: url.origin + "/storage/v1/upload/resumable" });
   });
 }

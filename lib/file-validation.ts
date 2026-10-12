@@ -2,6 +2,13 @@ import { Worker } from "node:worker_threads";
 import { join } from "node:path";
 import sharp from "sharp";
 
+export class PdfValidationError extends Error {
+  constructor(message: string, public code: string) { super(message); this.name = "PdfValidationError"; }
+}
+export class PdfProcessingError extends Error {
+  constructor() { super("Não foi possível preparar o PDF agora. O envio foi preservado; tente concluir novamente."); this.name = "PdfProcessingError"; }
+}
+
 export function validatePdf(bytes: Uint8Array, timeoutMs = 15000): Promise<{ pages: number }> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(join(process.cwd(), "lib/pdf-validation-worker.cjs"), {
@@ -15,10 +22,10 @@ export function validatePdf(bytes: Uint8Array, timeoutMs = 15000): Promise<{ pag
       settled = true; clearTimeout(timer); void worker.terminate();
       if (error) reject(error); else resolve(result!);
     };
-    const timer = setTimeout(() => finish(new Error("Validação excedeu o tempo permitido. Exporte um PDF estático mais simples.")), timeoutMs);
-    worker.once("message", message => finish(message.error ? new Error(message.error) : undefined, message.result));
-    worker.once("error", () => finish(new Error("PDF não pôde ser validado com segurança.")));
-    worker.once("exit", () => { if (!settled) finish(new Error("Validação do PDF interrompida.")); });
+    const timer = setTimeout(() => finish(new PdfProcessingError()), timeoutMs);
+    worker.once("message", message => finish(message.error ? new PdfValidationError(message.error, message.code) : undefined, message.result));
+    worker.once("error", () => finish(new PdfProcessingError()));
+    worker.once("exit", () => { if (!settled) finish(new PdfProcessingError()); });
   });
 }
 
