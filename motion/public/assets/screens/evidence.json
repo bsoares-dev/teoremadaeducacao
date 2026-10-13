@@ -1,0 +1,107 @@
+{
+  "capturedAt": "2026-10-13T01:47:35.759Z",
+  "baseUrl": "https://teoremadaeducacao.com.br",
+  "method": "Playwright, fresh anonymous context, GET/HEAD/OPTIONS plus verified read-only POST /api/catalog/selection; no clicks or form submissions",
+  "captures": [
+    {
+      "file": "home-desktop.png",
+      "requestedUrl": "https://teoremadaeducacao.com.br/",
+      "url": "https://www.teoremadaeducacao.com.br/",
+      "status": 200,
+      "title": "Teorema da Educação | Concursos para professores em SC",
+      "capturedAt": "2026-10-13T01:47:39.173Z",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "horizontalOverflow": false,
+      "scrollY": 0,
+      "h1": "Sua aprovação na Educaçãocomeça aqui.",
+      "missingImages": 0
+    },
+    {
+      "file": "home-mobile.png",
+      "requestedUrl": "https://teoremadaeducacao.com.br/",
+      "url": "https://www.teoremadaeducacao.com.br/",
+      "status": 200,
+      "title": "Teorema da Educação | Concursos para professores em SC",
+      "capturedAt": "2026-10-13T01:47:40.776Z",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "horizontalOverflow": false,
+      "scrollY": 0,
+      "h1": "Sua aprovação na Educaçãocomeça aqui.",
+      "missingImages": 0
+    },
+    {
+      "file": "materials-desktop.png",
+      "requestedUrl": "https://teoremadaeducacao.com.br/materiais",
+      "url": "https://www.teoremadaeducacao.com.br/materiais",
+      "status": 200,
+      "title": "Materiais de estudo em PDF | Teorema da Educação",
+      "capturedAt": "2026-10-13T01:47:44.123Z",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "horizontalOverflow": false,
+      "scrollY": 900,
+      "h1": "Conhecimento que acompanha o seu próximo passo.",
+      "missingImages": 0,
+      "catalogStatus": "CATÁLOGO\n\nMateriais para estudar com propósito.\nNovos caminhos estão sendo preparados.\n\nEm breve, você encontrará nossos materiais por aqui. Converse com a equipe para conhecer o projeto.\n\n0 materiais selecionados\nIr para o carrinho \n\nRevise os materiais no carrinho. Entre na sua conta para salvar sua seleção.\n\nPágina 1"
+    },
+    {
+      "file": "materials-mobile.png",
+      "requestedUrl": "https://teoremadaeducacao.com.br/materiais",
+      "url": "https://www.teoremadaeducacao.com.br/materiais",
+      "status": 200,
+      "title": "Materiais de estudo em PDF | Teorema da Educação",
+      "capturedAt": "2026-10-13T01:47:46.524Z",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "horizontalOverflow": false,
+      "scrollY": 710,
+      "h1": "Conhecimento que acompanha o seu próximo passo.",
+      "missingImages": 0,
+      "catalogStatus": "CATÁLOGO\n\nMateriais para estudar com propósito.\nNovos caminhos estão sendo preparados.\n\nEm breve, você encontrará nossos materiais por aqui. Converse com a equipe para conhecer o projeto.\n\n0 materiais selecionados\nIr para o carrinho \n\nRevise os materiais no carrinho. Entre na sua conta para salvar sua seleção.\n\nPágina 1"
+    },
+    {
+      "file": "questionnaires-mobile.png",
+      "requestedUrl": "https://teoremadaeducacao.com.br/questionarios",
+      "url": "https://www.teoremadaeducacao.com.br/questionarios",
+      "status": 200,
+      "title": "Questionários gratuitos | Teorema da Educação",
+      "capturedAt": "2026-10-13T01:47:49.160Z",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "horizontalOverflow": false,
+      "scrollY": 0,
+      "h1": "Questionáriosgratuitos.",
+      "missingImages": 0,
+      "availability": "Em desenvolvimento; questionários ainda não disponíveis"
+    },
+    {
+      "file": "courses-desktop.png",
+      "requestedUrl": "https://teoremadaeducacao.com.br/#materiais",
+      "url": "https://www.teoremadaeducacao.com.br/#materiais",
+      "status": 200,
+      "title": "Teorema da Educação | Concursos para professores em SC",
+      "capturedAt": "2026-10-13T01:47:52.265Z",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "horizontalOverflow": false,
+      "scrollY": 4041,
+      "h1": "Sua aprovação na Educaçãocomeça aqui.",
+      "missingImages": 0,
+      "availability": "Vitrine pública; curso completo encaminha ao Hotmart externo"
+    }
+  ]
+}
